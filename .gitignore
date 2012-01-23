@@ -12,3 +12,5 @@ dissertation.pdf
 *.toc
 *.lot
 *.prj.bak
+.DS_Store
+*.log

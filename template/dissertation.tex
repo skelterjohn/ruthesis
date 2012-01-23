@@ -12,7 +12,7 @@
 %% path to the document class.
 %% See the documentation of ruthesis.cls for a full list of document class
 %% options.
-\documentclass[12pt,electronic,prelimdraft,nonsubmission]{../ruthesis}
+\documentclass[12pt,electronic,prelimdraft,nonsubmission,phd]{../ruthesis}
 
 %% Insert a special command to make sure that LaTeX (or pdfLaTeX, or whatever)
 %% doesn't compile the manuscript on A4 pages
@@ -42,14 +42,22 @@
 \personaltrue
 %% Control which chapters are included
 \newif{\ifIntro}
+\newif{\ifBayesMath}
+\newif{\ifBOSS}
+\newif{\ifBFSSS}
+\newif{\ifRelMBBRL}
 \newif{\ifDocClass}
 \newif{\ifTemplateStructure}
 \newif{\ifUsefulTechniques}
 \newif{\ifAppendices}
 \Introtrue
-\DocClasstrue
-\TemplateStructuretrue
-\UsefulTechniquestrue
+%\DocClasstrue
+%\TemplateStructuretrue
+\BayesMathtrue
+\BOSStrue
+\BFSSStrue
+\RelMBBRLtrue
+%\UsefulTechniquestrue
 \Appendicestrue
 \newif{\ifVita}
 \Vitatrue
@@ -58,7 +66,7 @@
 %% is declared, but it can be redefined to include (for instance) your name
 \ifprelimdraft
   \renewcommand{\draftheading}
-               {\bfseries tedmunds
+               {\bfseries john asmuth
                 dissertation draft\hfil\the\month/\the\day/\the\year}
 \else\fi% end ifprelimdraft
 
@@ -104,6 +112,34 @@
 \label{sec:docClass}%
 \import{docClass/}{docClass}%
 \else\fi% end ifDocClass
+%
+%
+\ifBayesMath
+\chapter{Bayesian Math}
+\label{sec:bayesmath}
+\import{bayesian_math/}{bayesian_math}
+\else\fi
+%
+%
+\ifRelMBBRL
+\chapter{Related model-based Bayesian RL algorithms}
+\label{sec:relmbbrl}
+\import{rel_mbbrl/}{rel_mbbrl}
+\else\fi
+%
+%
+\ifBOSS
+\chapter{BOSS}
+\label{sec:boss}
+\import{boss/}{boss}
+\else\fi
+%
+%
+\ifBFSSS
+\chapter{BFSSS}
+\label{sec:bfsss}
+\import{bfsss/}{bfsss}
+\else\fi
 %
 %
 %% Import the chapter that describes the structure of this template.
