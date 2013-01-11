@@ -35,7 +35,7 @@ It is important to remember that these two black boxes encapsulate entire fields
 
 \subsubsection{The posterior sampler}
 
-The model posterior is the combination of a model prior (provided by the programmer) and observations (collected by the agent or provided by the environment). Techniques for deriving a posterior are covered in Chapter~\ref{bayes}.
+The model posterior is the combination of a model prior (provided by the programmer) and observations (collected by the agent or provided by the environment). Techniques for deriving a posterior are covered in Chapter~\ref{sec:models}.
 
 The posterior sampling black box must have the ability to sample from the set of worlds that are possible, given the observations made so far. The sampled model must be able to simulate transitions to next-states and rewards, given an action and the state it was taken from.
 
@@ -156,7 +156,7 @@ We will formalize Assumption~\ref{boss:alg:disc:proof:cond:opt} as follows:
 
 The result of applying a union bound across all $K$ samples and across all $S A$ state-ation pairs to this assumption is that, for a given set of $K$ posterior samples, with probability~$1-\delta_0/(S A)$, for each state-action pair, at least one of the $K$ samples is \emph{locally optimistic}.
 
-In Section~\ref{boss:alg:gen:hyper}, we saw how a hyper-model retains the optimism of each of its sub-models. If every state-action pair is locally optimistic in at least one of the $K$ sub-models, then the resulting hyper-model will be optimistic for all state-action pairs (as shown in Equation~\ref{boss:eqn:hyper-optimism}).
+In Section~\ref{boss:alg:gen:hyper}, we saw how a hyper-model retains the optimism of each of its sub-models. If every state-action pair is locally optimistic in at least one of the $K$ sub-models, then the resulting hyper-model will be optimistic for all state-action pairs.
 
 \subsubsection{Hyper-model optimism lemma}
 \label{boss:alg:disc:proof:opt}

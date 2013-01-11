@@ -118,7 +118,7 @@ To reconstruct the resulting belief-state, we pack the resulting concrete state 
 Figure~\ref{fig:bfs3} illustrates the {\bf BFS3}'s process for each belief-state visited by the agent. In the future, the agent may find itself in one of the reachable belief-states in the search tree.
 %shows how an agent can step through the search tree while making observations. The grayed trail represents the agent's history. The history for any particular node is the path from the root to that node.
 
-In many cases, the history $h$ can be summarized by a more compact sufficient statistic, and next-state posteriors can be sampled efficiently (for example, the {\bf FDM} prior detailed in Section~\ref{sec:bg}).
+In many cases, the history $h$ can be summarized by a more compact sufficient statistic, and next-state posteriors can be sampled efficiently (for example, the {\bf FDM} prior detailed in Section~\ref{sec:models}).
 
 The sufficient statistic for {\bf FDM} (and for any discrete state and discrete action MDP) is the set of histograms indicating how many times each state $s'$ has resulted from a particular state-action pair. Due to conjugacy, next-states can be sampled using {\bf FDM} without sampling an intermediate MDP. The next-state distribution is a multinomial with weights proportional to the corresponding histogram added to the prior vector $\alpha$.
 
