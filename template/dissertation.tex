@@ -42,7 +42,7 @@
 \personaltrue
 %% Control which chapters are included
 \newif{\ifIntro}
-\newif{\ifBayesMath}
+\newif{\ifModels}
 \newif{\ifBOSS}
 \newif{\ifBFSSS}
 \newif{\ifRelMBBRL}
@@ -53,7 +53,7 @@
 \Introtrue
 %\DocClasstrue
 %\TemplateStructuretrue
-\BayesMathtrue
+\Modelstrue
 \BOSStrue
 \BFSSStrue
 \RelMBBRLtrue
@@ -99,47 +99,34 @@
 %
 %% Import the introduction (unless the Intro boolean was set to false in the
 %% preamble above.
-\ifIntro%
 \chapter{Introduction}%
 \label{sec:introduction}%
-\import{introduction/}{introduction}%
-\else\fi% end ifIntro
+\import{introduction/}{chapter}%
 %
 %
-%% Import the chapter that describes the ruthesis document class.
-\ifDocClass%
-\chapter{\texttt{ruthesis} Document Class}%
-\label{sec:docClass}%
-\import{docClass/}{docClass}%
-\else\fi% end ifDocClass
+\chapter{Model inference}
+\label{sec:models}
+\import{models/}{chapter}
 %
 %
-\ifBayesMath
-\chapter{Bayesian Math}
-\label{sec:bayesmath}
-\import{bayesian_math/}{bayesian_math}
-\else\fi
-%
-%
-\ifRelMBBRL
-\chapter{Related model-based Bayesian RL algorithms}
+\chapter{Related work}
 \label{sec:relmbbrl}
-\import{rel_mbbrl/}{rel_mbbrl}
-\else\fi
+\import{related/}{chapter}
 %
 %
-\ifBOSS
-\chapter{BOSS}
+\chapter{Best Of Sampled Set}
 \label{sec:boss}
-\import{boss/}{boss}
-\else\fi
+\import{boss/}{chapter}
 %
 %
-\ifBFSSS
-\chapter{BFSSS}
-\label{sec:bfsss}
-\import{bfsss/}{bfsss}
-\else\fi
+\chapter{Bayesian Forward Search Sparse Sampling}
+\label{sec:bfs3}
+\import{bfs3/}{chapter}
+%
+%
+\chapter{Experiments}
+\label{sec:experiments}
+\import{experiments/}{chapter}
 %
 %
 %% Import the chapter that describes the structure of this template.
@@ -190,9 +177,7 @@
   \begin{bibliographysection}%
   %% Specify each of the BibTeX database files that are referenced in this
   %% chapter.
-  \putbib[bibliography/augmentedHaptics,%
-          bibliography/hapticExploration,%
-          bibliography/skillLearning]%
+  \putbib[bibliography/asmuth]%
   \end{bibliographysection}%
   \end{bibunit}%
 \else\fi% end ifperchapterbib
@@ -202,7 +187,7 @@
 %% Import the Conclusion chapter.
 \chapter{Conclusion}%
 \label{sec:conclusion}%
-\import{conclusion/}{conclusion}%
+\import{conclusion/}{chapter}%
 %
 %
 %% Import the appendices

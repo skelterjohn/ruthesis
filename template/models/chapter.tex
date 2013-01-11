@@ -1,0 +1,273 @@
+In this chapter I will discuss several different priors that can be used for model inference in a reinforcement--learning setting. There are two basic types of distributions that will be discussed: MDP distributions and experience distributions. The result of sampling from an MDP distribution is an entire MDP which can be used with various Bayesian algorithms to attack the reinforcement--learning problem. An experience distribution is one whose posterior is a theoretical transition in the agent's world.
+
+An experience distribution $\Theta$ is a distribution over possible next state/reward pairs $s',r$, given a possible history $h$, state $s$, and action $a$:
+\begin{eqnarray}
+\label{models:eqn:experience-dist} s', r &\sim& \Theta | s, a, h.
+\end{eqnarray}
+
+It is important to note that neither $s$ nor $h$ need be the agent's current state or history. They are possible states and histories that can be used for internal simulation.
+
+An MDP distribution $\phi$ is a distribution over possible MDPs, given a history $h$:
+\begin{eqnarray}
+\label{models:eqn:mdp-dist} m &\sim& \phi|h.
+\end{eqnarray}
+
+Like the history for experience distributions in Equation~\ref{models:eqn:experience-dist}, the history in Equation~\ref{models:eqn:mdp-dist} may or may not be the agent's current history (though often it will be).
+
+It is always possible to use an MDP distribution to mimic an experience distribution by first sampling a model, and then sampling a single step using that model:
+\begin{eqnarray}
+m &\sim& \phi|h,\\
+s' &\sim& T_m(s,a),
+\end{eqnarray}
+where $T_m(s,a)$ is the MDP $m$'s next-state distribution when in state $s$ and taking action $a$.
+
+All of the model-based Bayesian reinforcement learning algorithms discussed in this work use one of these two basic types of priors.
+
+
+\section{Dirichlet models}
+
+One of the simplest Bayesian models for reinforcement learning is the \prior{Flat Dirichlet Multinomial}, or \prior{FDM}. The \prior{FDM} is a prior for discrete state and action spaces with independent next-state distributions for each state-action pair. That is, next-state observations from one particular state and action gives no information about the next-state distribution for some other state and action.
+
+The ``flat'' part of \prior{FDM} refers to the fact that all pieces of the model must be learned independently; no higher level information can be shared. The ``multinomial'' part refers to the fact that each next-state distribution can be described by a multinomial. The ``Dirichlet'' part refers to the fact that the prior for each multinomial is the Dirichlet distribution.
+
+The Dirichlet distribution is defined as follows:
+\begin{eqnarray}
+\mbox{Dir}(\theta|\alpha) &=& \frac{\Gamma\left(\sum_i \alpha_i\right)}{\prod_i \Gamma(\alpha_i)} \prod_i \theta_i^{\alpha_i-1}.
+\end{eqnarray}
+
+According to the \prior{FDM} prior, each state-action pair's next-state distribution is a multinomial drawn i.i.d. from the Dirichlet distribution with parameter $\alpha$, a vector of non-negative numbers that represent an initial indication of possible next-state distributions. Each entry corresponds to an entry in the multinomial, which indicates the likelihood of a particular next-state. The $\alpha$-vector is a parameter to the model, and can be tuned to particular domains.
+
+In general, an $\alpha$ of all $1$s means that any possible multinomial is equally likely. An $\alpha$ with very high entries indicates that the multinomial is essentially known, and has weights corresponding to the ratios of the elements in $\alpha$.
+
+Due to a conjugacy relationship between the multinomial and Dirichlet distributions, we can easily derive a posterior for $\theta$ given $\alpha$ and the observations $X$.
+\begin{eqnarray}
+P(\theta|X,\alpha) &\propto& P(X|\theta,\alpha) P(\theta|\alpha),\\
+&\propto& \mbox{Mult}(X|\theta) \mbox{Dir}(\theta|\alpha),\\
+&\propto& \frac{\left(\sum_i X_i\right)!}{\prod_i X_i!} \prod_i \theta_i^{X_i} \frac{\Gamma\left(\sum_i \alpha_i\right)}{\prod_i \Gamma(\alpha_i)} \prod_i \theta_i^{\alpha_i-1},\\
+&\propto& \prod_i \theta_i^{X_i} \prod_i \theta_i^{\alpha_i-1},\\
+&\propto& \prod_i \theta_i^{X_i+\alpha_i-1},\\
+&\propto& \frac{\Gamma\left(\sum_i X_i+\alpha_i\right)}{\prod_i \Gamma(X_i\alpha_i)} \prod_i \theta_i^{X_i+\alpha_i-1},\\
+&=& \mbox{Dir}(\theta|\alpha+X).
+\end{eqnarray}
+
+The $\alpha$ vector can encode what is learned from a set of prior observations. With a $\mbox{Dir}(\langle x, y, z \rangle)$ prior and an observation of the second element, the posterior is $\mbox{Dir}(\langle x, y+1, z \rangle)$. Moving forward with that posterior is equivalent to starting with the prior $\mbox{Dir}(\langle x, y+1, z \rangle)$ without the benefit of the observation. It follows that starting with a prior of $\mbox{Dir}(\langle 1+x, 1+y, 1+z \rangle)$ is the same as starting with a prior of $\mbox{Dir}(\langle 1, 1, 1 \rangle)$ and making $x$, $y$, and $z$ observations of the first, second, and third outcomes, respectively.
+
+It is possible to specify an \emph{improper} prior with the Dirichlet model. Leaving one of the $\alpha$ values as $0$ indicates that the agent should expect to never see that outcome in any future samples. The sampled mutlinomial will always have a weight of $0$ for that outcome.
+
+The likelihood of any particular observation set, given the parameter $\alpha$, can be derived from the model
+\begin{eqnarray}
+\theta &\sim& \mbox{Dir}(\alpha),\\
+X &\sim& \mbox{Mult}(\theta, n),
+\end{eqnarray}
+where $X$ is the result of $n$ die rolls using $\theta$ as the side likelihoods, we can derive the following by integrating out $\theta$.
+\begin{eqnarray}
+P(X|\alpha, n) &=& \int_\theta \mbox{Mult}(X|\theta,n) \mbox{Dir}(\theta|\alpha),\\
+&=& \int_\theta \frac{\left(\sum_i X_i\right)!}{\prod_i X_i!} \prod_i\theta_i^{X_i} \frac{\Gamma\left(\sum_i \alpha_i\right)}{\prod_i \Gamma(\alpha_i)} \prod_i\theta_i^{\alpha_i-1},\\
+&=& \frac{\left(\sum_i X_i\right)!}{\prod_i X_i!} \frac{\Gamma\left(\sum_i \alpha_i\right)} {\prod_i \Gamma(\alpha_i)}\int_\theta \prod_i\theta_i^{X_i+\alpha_i-1},\\
+&=& \frac{\left(\sum_i X_i\right)!}{\prod_i X_i!} \frac{\Gamma\left(\sum_i \alpha_i\right)} {\prod_i \Gamma(\alpha_i)} \frac {\prod_i \Gamma(\alpha_i+X_i)} {\Gamma\left(\sum_i \alpha_i+X_i\right)} \int_\theta \frac{\Gamma\left(\sum_i \alpha_i+X_i\right)} {\prod_i \Gamma(\alpha_i+X_i)}  \prod_i\theta_i^{X_i+\alpha_i-1},\\
+\label{models:eqn:md-int-dens}&=& \frac{\left(\sum_i X_i\right)!}{\prod_i X_i!} \frac{\Gamma\left(\sum_i \alpha_i\right)} {\prod_i \Gamma(\alpha_i)} \frac {\prod_i \Gamma(\alpha_i+X_i)} {\Gamma\left(\sum_i \alpha_i+X_i\right)} \int_\theta \mbox{Dir}(\theta|\alpha+X),\\
+\label{models:eqn:md-int-nodens}&=& \frac{\left(\sum_i X_i\right)!}{\prod_i X_i!} \frac{\Gamma\left(\sum_i \alpha_i\right)} {\prod_i \Gamma(\alpha_i)} \frac {\prod_i \Gamma(\alpha_i+X_i)} {\Gamma\left(\sum_i \alpha_i+X_i\right)}.
+\end{eqnarray}
+Moving from Equation~\ref{models:eqn:md-int-dens} to Equation~\ref{models:eqn:md-int-nodens} is possible because the integral of any distribution over its entire support necessarily sums to $1$.
+
+
+
+\subsection{Tied Dirichlet models}
+
+By itself, the \prior{FDM} prior does not allow any sharing of information between states. The observations made of outcomes from any given state-action pair cannot be used to make inferences about any other state-action pair. However, sometimes the algorithm designer has prior knowledge indicating that the \emph{outcome} distributions of two or more state-action pairs are identical. Here, we use the term \emph{outcome} to be distinct from \emph{next-state}: the outcome must be combined with the starting state to get the next-state. For instance, the \emph{move-left} outcome can have the same likelihood for two particular states, but the identity of the actual state to the left differs.
+
+If these assumptions are made, we can share the outcome multinomial for several state-action pairs. Then, outcome observations made in one of the state-action pairs can be used to make inferences about the outcome distribution for any of the other state-action pairs in the set in question.
+
+For instance, in the \env{Marble Maze} domain~\cite{leffler07}, the possible outcomes are \emph{north}, \emph{east}, \emph{south}, \emph{west}, and \emph{stay}. They each indicate the agent moving to the corresponding adjacent cell in the maze (or not moving). No other outcomes are possible: the agent cannot move to non-adjacent cells. The outcome distribution for any state-action pair depends on the walls surrounding the cell for the current state. If there is a wall to the north, then any outcome that would have been \emph{north} becomes \emph{stay}, indicating that the agent ran into the wall and was unable to move.
+
+Since the outcome distribution is a function of the current cell's walls, different states whose cell wall configurations are identical have identical outcome distributions. If these wall configurations are known before the experiment begins, then a tied Dirichlet model can be used to speed learning.
+
+\begin{eqnarray}
+\theta &\sim& \mbox{Dir}(\alpha),\\
+X^j &\sim& \mbox{Mult}(\theta),\\
+Y &=& \langle X^1, X^2, ... , X^J \rangle.
+\end{eqnarray}
+
+For a vector $V$, let $\vchoose V i =\frac{\left(\sum_i V_i\right)!}{\prod_i V_i!}$, and $\vgamma V i=\frac{\Gamma\left(\sum_i V_i\right)}{\prod_i \Gamma(V_i)}$. For vectors $V$ and $\rho$, let $\rho^V=\prod_i \rho_i^{V_i}$. For a vector $V$ and a constant $k$, let $V+k=\langle V_1+k, V_2+k, ... \rangle$.
+
+\begin{eqnarray}
+P(Y|\alpha) &=& \int_\theta P(Y|\theta)P(\theta|\alpha),\\
+&=& \int_\theta \prod_j \mbox{Mult}(X^j|\theta)\mbox{Dir}(\theta|\alpha),\\
+&=& \int_\theta \prod_j \vchoose {X^j} i \theta^{X^j} \vgamma \alpha i \theta^{\alpha-1},\\
+&=& \prod_j \vchoose {X^j} i \vgamma \alpha i  \int_\theta \prod_j \theta^{X^j+\alpha-1},\\
+&=& \prod_j \vchoose {X^j} i \vgamma \alpha i  \int_\theta \prod_j \vgamma{X^j+\alpha} i \vgammainv{X^j+\alpha} i \theta^{X^j+\alpha-1},\\
+&=& \prod_j \vchoose {X^j} i \vgamma \alpha i \vgammainv {X^j+\alpha} i \int_\theta \mbox{Dir}(\theta|\alpha+X^j),\\
+\label{models:eqn:tied-post}&=& \prod_j \vchoose {X^j} i \vgamma \alpha i \vgammainv {X^j+\alpha} i.
+\end{eqnarray}
+
+
+Section~\ref{models:npm} demonstrates how to automatically tie different states together based on experience using nonparametric clustering techniques.
+
+\section{Gaussian models}
+
+Similarly to the Dirichlet model's easy relation with discrete state and action spaces, a Gaussian model can be used to provide priors for continuous spaces. If an environment's dynamics can be modeled with a Gaussian next-state or outcome function, there are convenient priors that can be used to make inferences.
+
+\note{the connection between priors and inference and learning isn't spelled out here.  is it elsewhere?} For discrete action domains, learning the dynamics for each action can be considered a separate problem. Section~\ref{models:npm} discusses methods to tie information from different actions and different states together, but for now we'll study the simpler learning problem where each action can be considered in isolation.
+
+The simplest case is when the next-state is drawn directly from a Gaussian distribution. A more interesting case has an outcome drawn from a Gaussian distribution, and then the next-state is derived from applying the outcome to the previous state. The inference problem, where the agent learns the mean and variance of the Gaussian distribution in question, is the same either way. The only difference is what data the inference engine is given as examples.
+
+An easy version of this problem is the unknown mean, known variance prior\note{ref?}. Given some covariance $\Sigma$, and a mean prior of $N(\mu_\mu, \Sigma_\mu)$, we can concisely describe the model as follows:
+\begin{eqnarray}
+\mu_a &\sim& N(\mu_\mu, \Sigma_\mu),\\
+o_t &\sim& N(\mu_{a_t}, \Sigma),\\
+s_{t+1} &=& f(s_t, o_t).
+\end{eqnarray}
+
+Here, $\mu_\mu$ is the prior mean for the latent variable $\mu_a$, and $\Sigma_\mu$ is the prior covariance for $\mu_a$. $a_t$ is the action performed by the agent on the $t^{\mbox{\small th}}$ timestep, and $o_t$ is the outcome observed as a result of that action. The next state, $s_{t+1}$ can be derived by applying the outcome function $f$ to the previous state $s_t$ and outcome.
+
+Given this model and a history $s_0, a_0, o_0, ..., s_T, a_T, o_T$, a posterior distribution for latent model variables $\mu_a$ can be inferred, for all actions $a \in A$. Since the Gaussian distribution is conjugate prior to the known-covariance multivariate normal distribution\note{ref?}, there is a closed-form solution for its posterior:
+
+\begin{eqnarray}
+\Sigma' &=& \left(\Sigma_u^{-1}+n\Sigma^{-1}\right)^{-1},\\
+\bar x &=& \frac 1 T \sum_{t=1}^T o_t,\\
+\mu_a &\sim& N\left((\Sigma'\left(\Sigma_u^{-1}\mu_u+T\Sigma^{-1}\bar x\right), \Sigma'\right).
+\end{eqnarray}
+
+It is possible to do inference with a known mean, unknown variance prior, described as follows:
+\begin{eqnarray}
+\Sigma_a &\sim& W^{-1}(m, \Psi),\\
+o_t &\sim& N(\mu, \Sigma_{a_t}),\\
+s_{t+1} &=& f(s_t, o_t).
+\end{eqnarray}
+
+Here, $W^{-1}(m, \Psi)$ is the inverse Wishart distribution, whose density is described in Equation~\ref{models:iwdensity}:
+\begin{eqnarray}
+\label{models:iwdensity}P(\Sigma|m,\Psi)&=&\frac{|\Psi|^{m/2}}{2^{mp/2}\Gamma_p(m/2)}|\Sigma|^{-\frac{m+p+1}{2}}\exp\left(1/2 \mbox{tr}\left[\Psi\Sigma^{-1}\right]\right),
+\end{eqnarray}
+where $p$ is the number of dimensions, and $\Gamma_p$ is the partial gamma function.
+
+The inverse Wishart distribution is chosen because it is conjugate (and therefore mathematically convenient) to the known mean, unknown variance Gaussian, and as a result inference on the covariance $\Sigma$ is efficient. Assuming, without loss of generality, that the mean is zero, the covariance posterior is defined as follows:
+\begin{eqnarray}
+X &=& \left[o_1 \ o_2 \ ... \ o_T\right],\\
+A &=& X X^T,\\
+\Sigma|X, m, \Psi &\sim& W^{-1}(T+m, A+\Psi).
+\end{eqnarray}
+
+
+We can also assess the data likelihood\note{I can add derivations, if appropriate. (ml:) yes details needed.  can be relegated to appendix if they break the flow},
+\begin{eqnarray}
+P(X|m, \Psi) &=& \pi^{-\frac{mp}{2}} 
+\frac {\Psi^\frac{m}{2}}
+      {|\Psi+A|^\frac{m+T}{2}} 
+\frac {\Gamma_p(\frac{m+T}{2})} 
+      {\Gamma_p(\frac{m}{2})},
+\end{eqnarray}
+which is useful for the mixture models in Section~\ref{models:npm}.
+
+Finally, the unknown variance, unknown mean case also allows efficient inference. The Normal inverse Wishart distribution, which is simply the simultaneous application of a Gaussian and an inverse Wishart, can be used to perform efficient inference in this case.\note{ml: says who?}
+
+\section{Nonparametric mixture models}
+\label{models:npm}
+
+While the application of conjugacy concepts to a reinforcement-learning scenario is interesting and can be fun for the enthusiastic Bayesian, models that don't provide any flexibility or effective way to incorporate interesting prior knowledge have limited utility. In most reinforcement-learning problems, observations made in one state can help you make inferences about other similar states with less data.
+
+If the algorithm designer's prior knowledge says that there are groups of states that share outcome dynamics, it makes sense to cluster states together based on similarities seen in their next-state distributions. Many classical machine-learning techniques that accomplish this task must be provided with a guess for the total number of clusters.
+
+In this section, we will discuss the nonparametric\footnote{Here \emph{nonparametric} refers to the fact that the model can have an arbitrarily large number of parameters.} Bayesian approach to clustering.
+
+\subsection{Dirichlet mixture models}
+
+With discrete state- and action-space environments whose states are divided into several (unknown) groups based on their dynamics, a Dirichlet mixture model can be used to help inference. Here, $s_1$ and $s_2$ refer to two arbitrary (yet different) states in the MDP, rather than the states observed on the first and second steps in an experiment. Let $o_{s,a}$ be a vector of counts, representing a histogram of the outcomes observed so far in state $s$ when taking action $a$.
+
+The clustering model follows:
+\begin{eqnarray}
+C &\sim& CRP(\alpha),\\
+\theta_{z,a} &\sim& Dirichlet(\beta),\\
+o_{s,a} &\sim& Mult(\theta_{C_s,a}).
+\end{eqnarray}
+
+In this model, $C$ is the set of assignments of states to clusters. So, $C_1$ is the number representing the cluster to which $s_1$ belongs. The quantity $\theta_{z,a}$ is the parameter to the dynamics for states in cluster $z$ when performing action $a$. Finally, the outcome histogram $o_{s,a}$ is drawn from a multinomial parameterized by the $\theta$ corresponding to the cluster containing the state in question.
+
+Using this model, we can sample dynamics from the posterior $P(\theta, C|o)$ to get a guess about the underlying MDP. Because the Dirichlet distribution is conjugate to the multinomial distribution, the likelihood $P(o|C)$ can be evaluated efficiently. Using that likelihood, approximation techniques can be used to effectively sample the posterior $P(C|o)\propto P(o|C)P(C)$, and then sampling from $P(\theta|C,o)$ is straightforward.\note{Diagram?  Example?  Something to solidify this complex idea?}
+
+\subsection{Gaussian mixture models}
+
+The use of nonparametric clustering techniques can also be applied to Gaussian dynamics. \prior{Relocatable Outcomes Across Regions}, or \prior{ROAR} is the name I have given to one such technique.
+
+Sampling from the \prior{ROAR} posterior occurs in two stages. In the first stage, the set of observed instance data for each action is clustered based on the similarity between states, outcomes, rewards and termination signal. That is, the observed instances induce a clustering. In the second stage, questions about particular state-actions are asked, and distributions over the clusters found in the first part, conditioned on the state-action, are generated. Once a cluster is chosen, the outcome, reward and termination signal is drawn from the outcome, reward and termination signal distributions associated with that cluster. That is, the induced clustering is used to sample hypothetical experience, generalized from the real experience.
+
+\prior{ROAR} uses a nonparametric Bayesian prior over models that can generate instances $I_t=\left<s_t, a_t, o_t, r_t, \phi_t\right>$ representing the \emph{state}, \emph{action}, \emph{outcome}, \emph{reward} and \emph{termination} signals for a particular step in the environment.
+
+For a given action, the model may generate an instance by first drawing normal distributions for the state feature vector, outcome feature vector and reward signal generators, and a two-degree multinomial distribution for the termination signal generator. These are drawn from a Dirichlet Process with a base measure that uses independent Inverse Wishart and Dirichlet distributions for drawing normal and multinomial distributions, respectively. The values making up the instance itself are then drawn from the generators.
+
+The Inverse Wishart distribution is chosen to be the prior for the Normal distribution covariances because, as well as providing an analytical way to integrate out key parameters (Equation~\ref{eq:iw}), the way in which an Inverse Wishart distribution is sampled is analogous to the way the maximum likelihood estimation of covariance is derived.
+
+The basic form of the model is similiar to that described by the Infinite Gaussian mixture model~\cite{rasmussen00}, except in its choice of priors (Rasmussen uses the Gamma prior, rather than the Inverse Wishart), and the fact that the Infinite Gaussian mixture model draws hyperparameters from their own priors, where in this work they are fixed. Having fixed hyperparameters makes the model less flexible, but also easier to deal with both mathematically and in the approximation process.
+
+The Chinese Restaurant Process~(CRP) formulation of the Dirichlet Process is used:
+\begin{eqnarray*}
+C=\left<C_0,C_1,...,C_T\right> &\sim& \mbox{CRP}(\alpha)\\
+\Sigma^{\mbox s}_i &\sim& W^{-1}(\Psi_{\mbox s}, m_{\mbox s})\\
+%\Sigma^i_o,\Sigma^r_o &\sim& W^{-1}(\Psi_o, m_o),W^{-1}(\Psi_r, m_r)\\
+\Sigma^{\mbox o}_i &\sim& W^{-1}(\Psi_{\mbox o}, m_{\mbox o})\\
+\Sigma^{\mbox r}_i &\sim& W^{-1}(\Psi_{\mbox r}, m_{\mbox r})\\
+\theta_i &\sim& Dir(\left<\alpha_\phi, \beta_\phi\right>)\\
+\mu^{\mbox s}_i,\mu^{\mbox o}_i,\mu^{\mbox r}_i &\sim& \mbox{Uniform}\\
+s_t &\sim& N(\mu^{\mbox s}_{C_t},\Sigma^{\mbox s}_{C_t})\\
+%o_t, r_t &\sim& N(\bar o^{C_t},\Sigma^{C_t}_o),N(\bar r^{C_t},\Sigma^{C_t}_r)\\
+o_t &\sim& N(\mu^{\mbox o}_{C_t},\Sigma^{\mbox o}_{C_t})\\
+r_t &\sim& N(\mu^{\mbox r}_{C_t},\Sigma^{\mbox r}_{C_t})\\
+\phi_t &\sim& \mbox{Multinomial}(\theta_{C_t}).
+\end{eqnarray*}
+A vector of cluster indices $C$ is drawn from the CRP, and for each of these clusters the parameters are chosen from their respective priors.
+
+
+\subsubsection{Cluster Sampling}
+%Inference with CRPs is generally intractable, so a form of MCMC\cite{andrieu03}, Gibbs sampling, is used to approximate. An individual assignment $C_t$ of instance to cluster are resampled one by one, conditioned on the other assignments $C_{-t}$. This process is repeated for some time and once a mixing period has finished, snapshots of $C$ will be samples from the true posterior.
+
+To sample from the \prior{ROAR} posterior, we must sample an assignment of clusters to instances. First, the observed instances are grouped by action and the different groups are handled separately. We will refer to $D$ as the entire collection of observed instance data for the action under consideration, and $\eta$ as the collection of hyperparameters $\alpha, \Psi_{\mbox s}, m_{\mbox s},\Psi_{\mbox o}, m_{\mbox o},\Psi_{\mbox r}, m_{\mbox r},\alpha_\phi,\beta_\phi$. The distribution over clusters, conditioned on observed data is
+$$P(C|D, \eta) \propto P(D|C, \eta)P(C|\eta),$$
+where $P(C|\eta)=P(C|\alpha)$ is the CRP prior from Equation~\ref{eq:crp}.
+%, and is defined to be $n_{C_t}/(\alpha+\sum_j n_j)$ when $n_{C_t}\neq 0$, where $n_i = \sum_{j\neq t} I(C_j=i)$, $\alpha/(\alpha+\sum_j n_j)$ otherwise.
+%$$P(C|\alpha)=\alpha^r \frac {\Gamma(\alpha)}{\Gamma(\alpha+\sum_i n_i)}\prod_i\Gamma(n_i)$$
+%and $n_i = \sum_{j} I(C_j=i)$ is the number of instances assigned to cluster $i$, and $r$ is the number of clusters with at least $1$ member.
+
+We refer to $P(D|C, \eta)$ as the clustering likelihood, or the probability that the instances in $D$ are clustered according to $C$. An important assumption is independence across clusters, so we know that $P(D|C,\eta) = \prod_i P(D^i|\eta)$, where $D^i=\{D_t|C_t=i\}$ is the collection of instances assigned to cluster $i$.
+
+The $i^{th}$ cluster likelihood $P(D^i|\eta)$ is then split up into its four components for the state, outcome, reward and termination signals. Since they are assumed to be independent, 
+\begin{eqnarray*}
+P(D^i|\eta)&=&P(s^i|\Psi_{\mbox s},m_{\mbox s})P(o^i|\Psi_{\mbox o},m_{\mbox o})P(r^i|\Psi_{\mbox r},m_{\mbox r})P(\phi^i|\alpha_\phi,\beta_\phi).
+\end{eqnarray*}
+To find the likelihood that some set $X$ of real vectors was drawn from a normal distribution whose mean is the sample mean and whose covariance $\Sigma$ is drawn from an Inverse Wishart prior, we can use the fact that the Inverse Wishart is conjugate prior to the normal distribution to integrate out the parameter $\Sigma$:
+\begin{eqnarray}
+\nonumber P(X|\Psi,m)&=&\int_\Sigma N(X|\bar X,\Sigma)W^{-1}(\Sigma|\Psi,m)d\Sigma\\
+&=&\frac{1}{\pi^{\frac{np}{2}}}
+\frac{\Gamma_p\left(\frac{m+n}{2}\right)}{\Gamma_p(\frac{m}{2})}
+\frac{|\Psi|^{\frac{m}{2}}}{|\Psi+S|^{\frac{m+n}{2}}},\label{eq:iw}
+\end{eqnarray}
+where $n$ is the number of vectors in $X$, $p$ is the dimensionality of the data, the scatter matrix $S=\sum_{i=1}^n(X_i-\bar X)(X_i-\bar X)^T$, the mean $\bar X=\frac 1 n \sum_{i=1}^n X_i$, and $\Gamma_p(z)=\pi^{p(p-1)/4}\prod_{j=1}^p\Gamma\left(z+\frac {1-j} 2\right)$.
+
+Similar techniques can be used to find the likelihood that some data came from a multinomial whose parameter $\theta$ is drawn from a Dirichlet prior:
+\begin{eqnarray*}
+P(x|\alpha) &=& \int_\theta Mult(x|\theta)Dir(\theta|\alpha)d\theta\\
+&=&\frac{(\sum_{i=1}^n x_i)!}{\prod_{i=1}^n x_i!} \frac{\Gamma(\sum_{i=1}^n \alpha_i)}{\prod_{i=1}^n\Gamma(\alpha_i)} \frac{\prod_{i=1}^n\Gamma(x_i+\alpha_i)}{\Gamma(\sum_{i=1}^n x_i+\alpha_i)}.
+\end{eqnarray*}
+\subsubsection{Parameter Sampling}
+
+Given a particular clustering assignment $C$, the parameters for individual clusters are independent. For the continuous features (\emph{state}, \emph{outcome} and \emph{reward}) the normal parameters can be sampled from the Inverse Wishart posterior. For the discrete feature (\emph{terminal} indicator) the Multinomial parameters can be sampled from the Dirichlet posterior. Through this process of finding a clustering and using posterior sampling to find cluster parameters, a sample is drawn from the \prior{ROAR} posterior.
+
+\subsubsection{Instance Sampling and Trajectory Sampling}
+
+Once a model $M$ is sampled from the \prior{ROAR} posterior, simulating experience is straightforward. Outcomes, rewards and termination indicators $\left<o,r,\phi\right>$ can be sampled from the model, conditioned on some particular state and action $\left<s,a\right>$. Since $\left<o,r,\phi\right>$ is independent of $\left<s,a\right>$, given a cluster, the algorithm must first choose such a cluster $c$ according to $P(c|s,a,M)\propto P(s|c,M)P(c|M,a)$. The outcome, reward and terminal indicator are then sampled individually according to $P(o|c,M)$, $P(r|c,M)$ and $P(\phi|c,M)$.
+
+It is important to note that the cluster $c$ chosen in this step does not have to be one of those created during the inference process. The CRP always leaves non-zero weight for creating a new cluster, and new clusters (drawn according to the Inverse Wishart and Dirichlet prior) must be allowed. The ability to reason about new clusters is especially important when the agent wants to make a prediction about a state that is very far from those states already observed. In this case, the likelihood of this state coming from one of the existing clusters will shrink (as it is farther from the means of these clusters) and a new, completely hypothetical cluster will be created.
+
+For planning, dealing directly with the Gaussian mixture model described in this section is inconvenient. It is much simpler to sample transitions directly, using Monte-carlo simulations, rather than deal with their distributions. To generate $n$ instances from the model, we sample from the distribution $P(I_1,...,I_n|M,s_1,a_1,...,s_n,a_n)$. That is, we jointly draw a collection of new instances $I_t=\left<s_t,a_t,o_t,r_t,\phi_t\right>$, conditioned on the states and actions that make them up. By doing so, we can generate the outcomes, rewards and termination signals necessary for our planner.
+
+The distribution can be broken down according to specific instances to be $$\prod_{j=1}^n P(I_j|M,I_1,...,I_{j-1},s_j,a_j)$$. That is, the distribution of an instance $I_j$ depends on all previous instances drawn---sampling is done \emph{without replacement}.
+
+Although it is tempting to sample the instances i.i.d., this shortcut will lead to all instances in unexplored areas of the state space being sampled directly from the prior\footnote{In the generative model, the means for new cluster outcome and reward distributions are drawn from a uniform distribution. In practice, using a mean of zero for the first sample, and the sample mean thereafter, is effective.}. Doing so causes the unexplored areas to appear the same as the other unexplored areas in every model sampled. When they are sampled jointly as described, the \emph{distributions} for those unexplored areas are sampled from the prior, but the \emph{instances} are sampled from those distributions. As a result the unexplored areas are distinct from one another and from those in other models. There is same-model consistency in these areas that is not achieved otherwise.\note{I don't think there's enough detail here to really inform anyone.  More concreteness is key}
+
+%
+\ifperchapterbib%
+For the convenience of the reader, a list of references is provided at the end of each chapter (where applicable).
+\ifendbib%
+A bibliography containing all cited references is included at the \hyperref[sec:bibliography]{end of the dissertation}.
+\else\fi% end ifendbib
+\cbend%
+\else\fi% end ifperchapterbib

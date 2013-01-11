@@ -1,0 +1,350 @@
+One of the fundamental goals for researchers working in the field of artificial intelligence is to make computers act more like ``us''. That is, we can play chess, or drive a car, or control a robot, so why is it so difficult to make a computer program to do things the way \emph{we} do? Unfortunately, human behavior appears to arise from an arcance mix of intuition, acquired knowledge, and calculation. Automated problem solvers have gotten very good at the calculation aspects, but effectively incorporating prior knowledge into the agent's calculations remains difficult.
+
+The Bayesian approach to machine learning attempts to address the knowledge issue. With this approach, knowledge given to the algorithm before any acting occurs is formalized into a \emph{prior}. The prior describes what the algorithm designer thinks the world ``might be''. As a result, priors can be either extremely vague or even uninformative, but they can also be exact or nearly exact descriptions of the world. The Bayesian approach to machine learning takes the prior and combines it with observations made from the world.
+
+In this dissertation I will discuss methods of applying the Bayesian approach to building and using models for sequential decision making. Using a prior to shape an agent's concept of how its environment works can greatly reduce the amount of data it must collect before performing well; if you tell it that something can or can't happen a certain way, it won't need to test things in order to find out.
+
+\note{graphic with blocks for planner, learner, agent, prior, env, that kind of thing}
+
+The approach I use here to sequential decision making and reinforcement learning can be divided into distinct blocks: modeling and planning. By drawing a strong distinction between the two areas of agent design, one can more easily draw upon the results of their respective communities. The Bayesian machine learning community focuses its efforts on building complex models that can be used for priors in learning, and works on efficient inference approximations. The planning community focuses its research on efficient ways to act, once given a model. It is only natural to seek to try to turn the fruits of these two communities into a pipeline for learning and sequential decision making.
+
+The particular flavor of learning and sequential decision making problems approached here is called reinforcement learning. Reinforcement learning provides a flexible way to evaluate a possible behavior through the use of numerical rewards that the agent seeks to maximize. Simple ``find the shortest path to the goal'' behavior, that much of planning research is centered around, is insufficient for many more realistic scenarios where there can be many factors to consider when comparing the ``goodness'' of two agent behaviors.
+
+\section{Reinforcement learning}
+
+Reinforcement learning, or RL, is a framework for problems in which an agent has both an unknown world and/or an unknown goal. In a reinforcement learning experiment, the agent interacts with the environment by making observations and performing actions. Each time an action is performed, a new observation is returned to the agent along with a numerical reward signal. The agent's goal is, then, to maximize the cumulative reward over the course of the experiment.
+
+Reinforcement learning can be applied to any problem that has an agent, an environment and rewards. Shortest-path problems can be represented by a reward function that gives $-1$ for each step before the goal, and $0$ or some positive reward for every step after the goal is reached. Bandit problems, a class of reinforcement learning problems in which the actions taken in the past have no effect on actions taken in the future (though the previous results can affect the agent's \emph{perception} of what might happen in the future), can be mapped to online advertizing, where the agent is trying to figure out what ads a typical user is most likely to click.
+
+The related fields of planning and control theory, while initially appearing to solve many of the same kinds of problems, are only part of the story. Planning and control theory are two ways to figure out what to do in a known-model situation. That is, when you have a complete understanding of the world in which your agent exists, and there is no need to learn about or explore the environment. The field of reinforcement learning makes the opposite assumption: that some portion of the world must be learned in order to develop good agent behavior.
+
+With an unknown world, there is a tension between acting to optimize reward based on what the agent already knows, and taking actions that are very likely not the right thing to do, in order to learn more about the world so that the agent can act more optimally in the future. This tension is referred to as the \emph{exploration/exploitation trade-off}, and is central to the field of reinforcement learning.
+
+Since the observations made by the agent often correspond strongly with the previous observation and the action performed, reinforcement learning has some aspects of active learning. The agent can direct the kinds of data it receives by deciding which action to perform, but it is also limited by the previous observation.
+
+Since it is often difficult to distinguish between two infinite sums, RL researchers lean on the idea of a discount factor, usually labeled $\gamma$. An agent's optimal policy is then the one that maximizes the expected cumulative discounted sum of rewards. This sum is called the expected return. The expected return for a given policy $\pi$ is denoted $R_\pi$:
+\begin{eqnarray}
+R_\pi &=& \sum_{t=0}^\infty \gamma^t E_\pi[r_t].
+\end{eqnarray}
+The optimal policy, $\pi^*$, is the policy that maximizes the return:
+\begin{eqnarray}
+\pi^* &=& \argmax_\pi R_\pi
+\end{eqnarray}
+
+
+\subsection{Markov Decision Processes}
+
+A common way to concisely describe a reinforcement learning environment is the Markov Decision Process\note{cite}, or MDP. With an MDP, the observation is a complete description of the configuration, or state, of the world, and the next observed state is a function only of the previous state and action performed. That is, if an agent begins in state $s_1$ and performs action $a_1$, the odds that it ends up in state $s_2$ are the same no matter when this occurs. This is because the next-state distribution is unchanging. It is important to note that the agent's \emph{impression} of the next-state distribution is free to change, but the actual distribution, which may be unknown, will not.
+
+An MDP is formally defined as the tuple $\langle S, A, R, T \rangle$, where $S$ is the set of states, $A$ is the set of actions, $R:S \times A \rightarrow \Re$ is the reward function, and $T:S \times A \rightarrow \Pi(S)$ is the transition function.
+
+The state and action sets $S$ and $A$ may be a discrete collection or a continuous range. The reward function $R$ maps state-action pairs to numerical rewards, and the transition $T$ maps state-action pairs to distributions over next-states. Usually, $S$ and $A$ are given, and $R$ and $T$ begin unknown and must be learned.
+
+An MDP is often represented by a graph (for example, Figure~\ref{intro:mdp}), where nodes are states and edges are actions. At any given time, the agent is said to be \emph{in} some state, and can \emph{take} an action. As a result of taking the action from the state, the agent will receive a numerical reward and end up in another state, or possibly stay in the same state.
+
+
+\begin{figure}[t]
+\begin{center}
+\includegraphics[width=0.5\linewidth]{mdp.pdf}
+\caption{an mdp}
+\label{intro:mdp}
+\end{center}
+\end{figure}
+
+
+
+The expected return of the optimal policy for the MDP, starting in a particular state, is called the value of that state. The value of a state is denoted by $V(s)$, and is defined as a recurrence relation. The expected return for being in a particular state, taking a given action, and following the optimal policy thereafter, is called the Q-value of that state-action pair. The Q-value of a state-action pair is denoted by $Q(s,a)$.
+\begin{eqnarray}
+\label{intro:eqn:value} V(s) &=& \max_a Q(s,a),\\
+\label{intro:eqn:qvalue} Q(s,a) &=& R(s,a) + \gamma \sum_{s'} T(s,a)(s') V(s').
+\end{eqnarray}
+Using the definition of $V(s)$, we know that the optimal policy is the one that chooses actions with the highest Q-values for the current state.
+
+\subsection{Planning}
+
+The act of finding an optimal or near-optimal policy for a known MDP is called planning. Some planning techniques will be given a more thorough treatment in Chapter~\ref{sec:relmbbrl}. This chapter will briefly describe some simple planning techniques.
+
+\subsubsection{Value iteration}
+
+Value iteration, outlined in Algorithm~\ref{alg:vi}, is a planning method which applies the idea of dynamic programming to solving an MDP with a discrete state space and discrete action space. The values that are iterated are the Q-values. The Q-values are given some initial guess (for instance, zero), and Equations~\ref{intro:eqn:value}~and~~\ref{intro:eqn:qvalue} are applied iteratively to all state-action pairs (for the Q-value) and to all states (for the value).
+
+Once the difference between successive estimates of the Q-values, measured by the $\infty$-norm, is smaller than $\epsilon$, the difference between the last estimate and the truth is guaranteed to also be smaller than $\epsilon$. Eventually the error will shrink to an acceptably small level, and an approximately optimal policy will be found.
+
+For manageably small numbers of states and actions, value iteration is an effective and easy method for planning. Because the minimum accuracy $\epsilon$ is specified, the algorithm is gauranteed to finish after a finite number of ``sweeps'' of updates to each of the states, so long as the maximum reward attainable for any state is finite.
+
+If the maximum reward, or $\Rmax$, is known exactly, the maximum number of value iteration sweeps can be calculated.  In considering one possible return $R=\sum_{t=0}^\infty \gamma^t r_t$, we can separate it into two sections: those rewards achieved before $T$ steps and those achieved after and including step $T$. Let's consider the pathological case where all steps after and including step $T$ have a reward of $\Rmax$. Then the return is
+\begin{eqnarray}
+R &=& \sum_{t=0}^{T-1} \gamma^t r_t + \sum_{t=T}^\infty \gamma^t \Rmax,\\
+&=& \sum_{t=0}^{T-1} \gamma^t r_t + \Rmax \frac{\gamma^T}{1-\gamma}.
+\end{eqnarray}
+
+Because $\Rmax$ was chosen for each reward in the later part of the return, it has the maximum possible influence. There is some value for $T$ which will set the contribution of this part of the expression to $\epsilon$.
+\begin{eqnarray}
+\epsilon &=& \Rmax \frac{\gamma^T}{1-\gamma},\\
+{\gamma^T} &=& \epsilon \frac {1-\gamma} \Rmax,\\
+T &=& \log_\gamma\left(\epsilon \frac {1-\gamma} \Rmax\right).
+\end{eqnarray}
+
+Assuming without loss of generality that the smallest possible reward $\Rmin=0$, any return can be approximated to within $\epsilon$ by the discounted sum of its first $\log_\gamma\left(\epsilon \frac {1-\gamma} \Rmax\right)$ rewards.
+
+If value iteration is run with $T=\log_\gamma\left(\epsilon \frac {1-\gamma} \Rmax\right)$ iterations, the values that it assigns to each state will be within $\epsilon$ of the truth. Since the value of a state is the sum of all the rewards you can get starting at that state, weighted by how likely they are under the optimal policy and by how many steps they are into the future, we can follow the rewards from their sources (the actions that triggers them) backwards through the MDP to the state whose value we're inspecting. After one sweep of value iteration, the state that the action was performed in sees the effect of the reward. After two sweeps, the states that can reach the first state see the effect. After $T$ sweeps, the reward has propogated to states that require $T$ steps to achieve it. At this point, the value for each state in the MDP is taking into account all rewards that are achievable in no more than $T$ steps. Since rewards that take longer to get are too discounted to matter, no more work needs to be done.
+
+\begin{algorithm}[tb]
+	\caption{$\mbox{Value iteration}(S, A, R, T, \gamma, \epsilon)$}
+	\label{alg:vi}
+	\KwIn{State set $S$, action set $A$, reward function $R$, transition function $T$, discount factor $\gamma$, accuracy $\epsilon$}
+	\KwOut{Q-value table $Q$}
+	$\forall_s\ V_0(s)\leftarrow 0$\\
+	$\forall_{s,a}\ Q_0(s,a)\leftarrow 0$\\
+	$e_0 \leftarrow \infty$\\
+	$i \leftarrow 0$\\
+	\While {$e_i > \epsilon$} {
+		$i \leftarrow i+1$\\
+		$e_i \leftarrow 0$\\
+		\For {$s \in S$} {
+			\For {$a \in A$} {
+				$Q_i(s,a) \leftarrow R(s,a) + \gamma \sum_{s'} T(s,a)(s') V_{i-1}(s')$
+			}
+			$V_i(s) \leftarrow \max_a Q_i(s,a)$\\
+			$e_i \leftarrow max(e_i, |V_i(s)-V_{i-1}(s)|)$\\
+		}
+	}
+	\Return $Q_i$
+\end{algorithm}
+
+\subsection{Outcomes}
+
+It is often useful to think of transitions from state to state in terms of the \emph{outcome} rather than the resulting state. In the context of this dissertation, and outcome is a summary of a change from one state to another. An example can be obtained from a grid-world, where each state is assigned a coordinate specifying a cell in the grid. With the origin at the bottom left, moving from the cell $(4,2)$ to the cell $(4,3)$ can be described by starting in the cell $(4,2)$ and moving ``up''. In this situation the outcome is ``up'' and describes how to derive the destination state given the beginning state.
+
+More formally, we have a set of states $S$, a set of outcomes $O$, an outcome function $f:S \times O \rightarrow S$, and an inverse outcome function $f^{-1}: S \times S \rightarrow O$. In the grid-world example, $S$ is the set of all possible cell coordinates, and $O$ is the set $\{\mbox{up},\mbox{down},\mbox{left},\mbox{right},\mbox{stay}\}$. $f$ is a function that takes a state (for instance, $(4,2)$) and an outcome (``up'') and produces the next state ($(4,3)$). The inverse outcome function takes two states and returns the outcome that describes the transition from the first state to the second state.
+
+The concept of an outcome becomes especially useful when trying to apply the same dynamics to two or more different states. In the grid-world example, it is very likely that every state-action pair has a unique next-state distribution. But observations on outcomes made in one state can very often be applied to learning another state, if the agent has a reason to believe that they share outcome dynamics.
+
+Chapter~\ref{sec:models} discusses some ways in which outcome distributions can be used to cluster states together, and how these groupings can be used to speed learning and drive exploration.
+
+\subsection{Optimality guarantees}
+
+A decision-making algorithm is said to be \emph{optimal} if it follows a policy that maximizes the expected return. Since it is generally impossible to infer an optimal policy before any learning has taken place, weaker guarantees are necessary.
+
+\subsubsection{Convergence}
+
+A reinforcement learning algorithm has a \emph{convergence} guarantee if it will provably act with the optimal policy in the limit, or after an infinite number of steps in the environment. While this guarantee is fairly weak, theoretically, algorithms that assert it often converge to something near-optimal in a much shorter period of time.
+
+Q--learning\cite{Watkins92} is an example of a reinforcement learning algorithm with a convergence guarantee.
+
+\subsubsection{PAC-MDP}
+
+\emph{Probably Approximately Correct in MDPs}, or PAC-MDP, is a guarantee that asserts near-optimality with high likelihood in a ``short'' amount of time. An algorithm that is PAC-MDP divides its experience into two catagories: exploration steps and exploitation steps. All exploitation steps must have near-optimal actions, or those whose Q--values are within a given accuracy threshold of the state's value, denoted by $\epsilon$. The number of exploration steps may not exceed a polynomial of the parameters of the environment (often the parameters will be the number of states and actions available in the environment). The algorithm is allowed some chance of failure, denoted by $\delta$.
+
+An algorithm that is PAC-MDP will, with high probability, make approximately optimal decisions for all but a polynomial number of steps, where the polynomial is a function of the number of states, actions, $\epsilon$ and $\delta$.
+
+RMAX\cite{brafman02} is an example of a reinforcement learning algorithm with a PAC-MDP guarantee.
+
+\subsubsection{Bayes-optimal}
+
+\emph{Bayes-optimality} is an optimality guarantee made in the context of an MDP prior. The prior distribution acts as knowledge about the environment given to the agent before learning occurs. If the MDP truly is drawn from the provided prior, then the policy that acquires the highest return is well-defined, if difficult to compute.
+
+Since every step in the environment affects the agent's belief about the environment in a well-defined way, it is possible to account for all possible step sequences and belief updates over some finite horizon.
+
+\begin{figure}[t]
+\begin{center}
+\includegraphics[width=0.25\linewidth]{bamdp-traversal-mdp.pdf}
+\includegraphics[width=0.55\linewidth]{bamdp-traversal-bamdp.pdf}
+\caption{{\bf Left:} an agent makes a trajectory through an MDP, starting at $s_1$ and following the grey arrows. {\bf Right:} the agent's trajectory through the corresponding BAMDP, where each belief-state has information about what has happened before, as well as the concrete state. Note that once the agent reaches a particular belief-state in the BAMDP, many belief states become unreachable since their internal beliefs are inconsistent with the belief that has been realized.}
+\label{intro:bamdp-traversal}
+\end{center}
+\end{figure}
+
+Bayesian learning in an MDP can be represented by a Bayes-Adaptive MDP, or BAMDP~\cite{duff03}. A BAMDP is a special MDP laid out like directed acyclic graph whose states are belief-states and whose actions are the actions that can be performed in the actual MDP. The belief-state expresses the agent's knowledge about the environment and a concrete state in whichthe agent can exist. The knowledge of the environment can be expressed by the combination of the prior and the observations made up to that point, or the posterior.
+
+Figure~\ref{intro:bamdp-traversal} shows a brief MDP traversal and the equivalent traversal in the corresponding BAMDP. The transition probabilities from belief-states in the BAMDP are known functions of the belief-state's posterior.
+
+The intuition behind the accuracy of the BAMDP for Bayesian-optimal decision making follows. Given some current belief-state for the agent, there is some set of next belief-states that can occur (this set may be infinite or continuous) for each action. The probability of each possible next belief-state is well-defined, and the posterior represented by the belief-state is the combination of the previous posterior and the step that could theoretically have occurred: each of the next belief-states represent one possible world that could result from taking one of the actions.
+
+Finding the value of a belief-state can then be done recursively, treating the set of next belief-states as a set of independent planning problems solved in the exact same way. When the agent takes a step in the actual environment, the agent's new belief matches exactly one of the beliefs considered in the planning problem from the previous state.
+
+If the environment is truly drawn from the agent's prior, simulating experience according to the prior and calculated posteriors is the exact same process as running through a single trajectory in the experiment. In fact, the entire BAMDP is known perfectly. Unfortunately it is usually difficult to completely solve, since it is so large relative to the underlying MDP.
+
+\subsubsection{PAC-BAMDP}
+
+\emph{Probably Approximately Correct for Bayes Adaptive MDPs} (sometimes known as near Bayes-optimal~\cite{kolter09}), or PAC-BAMDP, is an optimality guarantee for Bayesian reinforcement learning.
+
+Exact Bayes-optimal policy inference is generally intractable. Even with a small number of discrete actions and discrete states, the size of the tree grows exponentially with its depth (with $A$ actions, $S$ states, and a depth of $d$, there can be up to $(A S)^d$ nodes if the tree is fully searched). This growth rate means that even if we can limit our planning to some depth\footnote{With a discount factor $\gamma$, an accuracy constraint $\epsilon$, and a maximum value $\Vmax$, we need not consider anything farther than $\log_\gamma \frac \epsilon \Vmax$ steps away.}, fully evaluating every possibility is very difficult.
+
+As with most machine learning tasks, we satisfy ourselves with a probably approximately correct variation. Instead of considering all possible next belief-states in the search tree, we may consider a sufficiently representative subset. Limiting ourselves to the smaller set introduces some probability of failure, denoted $\delta$. In general, as $\delta$ grows small, the necessary size of the subset grows large. Instead of searching infinitely deep into the tree, we may consider nodes only up to a certain depth. Searching only to some depth introduces an accuracy error, denoted $\epsilon$. In general, as $\epsilon$ goes to zero, the necessary depth of the search tree goes to infinity.
+
+An algorithm that is PAC-BAMDP will, with high probability, make approximately Bayes-optimal decisions for all but a polynomial number of steps, where the polynomial is a function of the number of states (not the number of belief states), actions, $\epsilon$, and $\delta$.
+
+\subsubsection{PAC-MDP and PAC-BAMDP} These two different optimality guarantees are related in the following ways.
+
+\begin{enumerate}
+\item If the environment is drawn from the agent's prior, then a PAC-BAMDP agent is also PAC-MDP, and vice versa. \label{intro:opt:pac-equiv}
+\item If the environment is not drawn from the prior, then a PAC-BAMDP agent may perform worse than a PAC-MDP agent.
+\end{enumerate}
+
+Although Item~\ref{intro:opt:pac-equiv} indicates that PAC-MDP and PAC-BAMDP guarantees are equivalent when the prior is true, PAC-BAMDP agents can often perform much better in practice, since they can draw in prior knowledge in a way that algorithms that don't make use of a prior cannot. PAC-BAMDP can be considered the worst case for a Bayesian reinforcement learner: if the prior isn't informative enough, or it's too hard to plan in the belief-space induced by the prior, a PAC-BAMDP agent will still be PAC-MDP if the prior is true.
+
+When the environment is not drawn from the prior, a PAC-BAMDP gaurantee is less useful theoretically. In real experiments, the actual environment is almost never drawn from the prior---it is something that exists before-hand, and the prior is constructed later in order to inform the agent. For a PAC-BAMDP algorithm to be effective, the true environment only needs to be ``sufficiently likely'' according to the prior. Unfortunately this condition is not well-defined and is difficult to reason about except intuitively. \note{probably a better way to say that}
+
+\section{Bayesian inference}
+
+Bayesian inference refers to the general technique of combining a prior distribution with observed data to obtain a posterior distribution.
+
+Bayesian priors provide principled ways to bring knowledge into a learning problem. The prior distribution encodes the designer's assumption about how the agent's world or environment operates.
+
+Bayesian inference is based on one simple equation that relates the prior distribution to the posterior:
+\begin{eqnarray}
+\label{intro:eqn:bayes} P(H|E) &=& \frac{P(E|H)P(H)}{P(E)},
+\end{eqnarray}
+where $H$ is the hypothesis and $E$ is the evidence. $P(H|E)$, or the probability of the hypothesis conditioned on the evidence, is the posterior. $P(E|H)$, or the probability of the evidence conditioned on the hypothesis, is the data likelihood. $P(H)$, or the probability of the hypothesis without regard to the evidence, is the prior. $P(E)$, or the probability of the evidence without regard to the hypothesis, is usually considered a normalizing factor not calculated directly.
+
+\subsection{Coin flipping}
+
+An example which can illustrate the Bayesian inference process is that of learning the bias of a coin by flipping it a number of times.
+
+Suppose there is a bag of $10000$ coins, $10$ of which are two-headed. The remaining $9990$ coins are fair coins, equally likely to flip heads or tails. The experiment is to take a coin from this bag, and track how likely it is that the coin is biased after some number of observed flips.
+
+First, there must be a generative model to describe the experiment dynamics.
+
+\begin{eqnarray}
+\label{intro:eqn:coinbag}\rho &\sim&
+\left\{\begin{array}{lll}
+0.5 & \mbox{w.p.} & 9990/10000,\\
+1 & \mbox{w.p.} & 10/10000,
+\end{array}\right.\\
+\label{}H &\sim& \mbox{Binomial}(\rho, n),
+\end{eqnarray}
+where $\rho$ is the bias of the coin, either $0.5$ (fair) or $1$ (two-headed), $n$ is the number of flips made, and $H$ is the number of flips observed to be heads.
+
+The number of observed heads, $H$, is drawn from the binomial distribution, which has the probability mass function 
+\begin{eqnarray}
+\label{intro:eqn:binomial} P(H=h|\rho, n) = {n \choose h} h^\rho (n-h)^{1-\rho}.
+\end{eqnarray}
+
+The prior distribution of the coin's bias is defined explicitly in the generative model, in Equation~\ref{intro:eqn:coinbag}. To find the corresponding posterior distribution, one must use Bayes rule from Equation~\ref{intro:eqn:bayes}.
+
+The posterior, $P(\rho|h,n)$, can be formulated by applying Bayes rule and normalizing.
+
+\begin{eqnarray}
+P(\rho|h,n) & \propto & P(h|\rho,n)P(\rho|n),\\
+\label{intro:eqn:coinprop} & \propto & P(h|\rho,n)P(\rho)\\
+&\propto& {n \choose h} h^\rho (n-h)^{1-\rho} P(\rho)\\
+&\propto& h^\rho (n-h)^{1-\rho} P(\rho).
+\end{eqnarray}
+
+From our original model, Equation~\ref{intro:eqn:coinbag} tells us that there are only two possibilities for $\rho$: $0$ or $0.5$. To find their exact posterior likelihoods, we can evaluate Equation~\ref{intro:eqn:coinprop} for both and normalize.
+
+\begin{eqnarray}
+P(\rho=0.5|H=h,n) & \propto & {0.5}^h {0.5}^{n-h} \cdot \frac{9990}{10000}\\
+& \propto & {0.5}^n \cdot \frac{9990}{10000}.
+\end{eqnarray}
+
+\begin{eqnarray}
+P(\rho=1|H=h,n) & \propto &  1^h 0^{n-h} \cdot \frac{10}{10000}.
+\end{eqnarray}
+
+Let's first evaluate the posterior likelihood that $\rho=1$.
+\begin{eqnarray}
+\label{intro:eqn:coin-post}P(\rho=1|H=h,n) & = & \frac{1^h 0^{n-h} \cdot \frac{10}{10000}}{1^h 0^{n-h} \cdot \frac{10}{10000}+{0.5}^n \cdot \frac{9990}{10000}}.
+\end{eqnarray}
+
+There are two basic cases:
+\begin{enumerate}
+\item \label{intro:eqn:case-notallheads} Every flip was heads, or $h=n$.
+\item \label{intro:eqn:case-allheads} Not every flip was heads, or $h<n$.
+\end{enumerate}
+
+In Case~\ref{intro:eqn:case-notallheads}, when $h<n$, $P(\rho=1|H=h,n)$ goes to zero because of the $0^{n-h}$ term in the numerator.
+
+In Case~\ref{intro:eqn:case-notallheads}, when $h=n$, Equation~\ref{intro:eqn:coin-post} can be used to evaluate the posterior exactly.
+
+This same process, applying Bayes rule to turn a prior and observations into a posterior, is the basis for all models discussed in this work.
+
+\subsection{The Chinese Restaurant Process}
+
+The Chinese Restaurant Process, or CRP, is a nonparametric prior that can be used to guess assignments of elements in a set to clusters. Here the word nonparametric indicates that the number of parameters supplied by the CRP posterior depends on the size of the observation set that it is given.
+
+\begin{figure}[t]
+\begin{center}
+\includegraphics[width=0.4\linewidth]{crp-mixture.pdf}
+\caption{}
+\label{intro:crp-mixture}
+\end{center}
+\end{figure}
+
+
+
+The CRP is exchangeable. That is, the order of the elements does not affect the posterior assignment distribution. Additionally, the CRP prior likelihood is easy to evaluate online. For a new element, the prior likelihood that it belongs to any given cluster is proportional to the number of elements already in that cluster, and the prior likelihood that it belongs in a new cluster is proportional to a parameter $\alpha$.
+
+Inference on mixture models can often be done with a CRP. A generative mixture model follows. The observed data $X$ and the base measure $G_0$ are given, and $\alpha$ is a parameter that influences cluster size.
+
+\begin{eqnarray}
+F_i&\sim&G_0\\
+C&\sim&CRP(\alpha)\\
+X_t&\sim&F_{C_t}.
+\end{eqnarray}
+Here, $C$ is a vector and $C_t$ is the index of the cluster assigned to the data point $X_t$. $F_i$ is the sampling distribution associated with cluster $i$, and is drawn from the base measure $G_0$. Figure~\ref{intro:crp-mixture} illustrates how the data in $X$ is clustered by $C$, the assignment from the CRP.
+
+The task here is to perform inference on the assignments $C$ and the cluster distributions $F_i$. It is useful to choose cluster distributions $F$ and base measure $G_0$ such that $G_0$ is conjugate prior to $F$. Conjugacy allows us to easily derive a posterior $F~\sim~G_0|D$ and to calculate the ``clustering likelihood'' $P(X|C,G_0)=\prod_i\int_{F_i} F_i(X^i)G_0(F_i)dF_i$ analytically, where $X^i=\{X_t|C_t=i\}$ is the collection of data from $X$ assigned to cluster $i$. 
+
+The conjugacy between $F_i$ and $G_0$ allows us to sample the assignment vector $C$ with no knowledge of the parameters for $F_i$. $C$ is sampled from the distribution $P(C|X,G_0,\alpha)\propto P(X|C,G_0)P(C|\alpha)$. This step in itself is useful, as clustering has been performed. If more data needs to be generated for simulation, a new point $X_j$'s cluster can be chosen according to $P(C_j|C_{-j},\alpha)$, that cluster's distribution $F_{C_j}$ can be chosen from $G_0(F_{C_j}|X^{C_j})$ and $X_j$'s value can be chosen according to $F_{C_j}(X_j)$.
+
+There is also a closed form for the CRP prior, $P(C|\alpha)$:
+\begin{eqnarray}
+P(C|\alpha)&=&\alpha^r \frac {\Gamma(\alpha)}{\Gamma(\alpha+\sum_i n_i)}\prod_i\Gamma(n_i),\label{eq:crp}
+\end{eqnarray}
+where $n_i = \sum_{j} \delta_{C_j,i}$, and $\delta_{i,j}=1$ iff $i=j$, is the number of elements assigned to cluster $i$, and $r$ is the number of clusters with at least $1$ member.
+
+It is worth noting that the number of possible vectors $C$ grows exponentially with the number of elements in $X$. For CRP inference, Gibbs sampling~\cite{andrieu03,neal00} is a practical way to do approximation.
+
+\section{Bayesian models for reinforcement learning}
+
+As mentioned briefly at the beginning of this chapter, the Bayesian approach to learning can be applied to modeling reinforcement learning domains. There exist Bayesian approaches to model-free reinforcement learning\note{cite bayesian q-learning}, but they do not fit within the scope of this dissertation.
+
+For model building for reinforcement learning, we must first start with a model prior. We combine it with observations made by the agent to derive a model posterior. Reasoning about future choices that the agent will make can use this model posterior.
+
+\subsection{Flat Dirichlet multinomial}\note{cite}
+
+\label{intro:fdm}
+
+For a discrete-state and -action MDP, the flat Dirichlet multinomial, or FDM, prior can be used. According to the FDM prior, the next-state distributions for all state-action pairs are multinomials whose parameters are drawn i.i.d. from the Dirichlet distribution, parameterized by some constant vector $\alpha$.
+\begin{eqnarray}
+\theta^{s,a} &\sim& \mbox{Dirichlet}(\alpha)\\
+N^{s,a} &\sim& \mbox{Multinomial}(\theta^{s,a})
+\end{eqnarray}
+
+Because the Dirichlet distribution is conjugate prior to the multinomial distribution, the FDM posterior is easy to compute.
+\begin{eqnarray}
+\label{intro:eqn:fdm-theta}\theta^{s,a}|N^{s,a} &\sim& \mbox{Dirichlet}(\alpha+N^{s,a})\\
+\label{intro:eqn:fdm-s}P(s'|N^{s,a},\alpha) &\propto& \alpha_{s'}+N^{s,a}_{s'}
+\end{eqnarray}
+
+Equation~\ref{intro:eqn:fdm-theta} gives us the ability to sample from the MDP posterior, if our planner requires a whole model in order to function. Equation~\ref{intro:eqn:fdm-s} gives us the ability to sample experience, and can be considered a trajectory prior. This is useful if the planner wants only a simulation oracle, and doesn't care about entire models.
+
+This prior is theoretically attractive, since it easily supports all possible discrete-state and -action MDPs. On the other hand, it is not particularly informative. RL agents that rely on the FDM prior generally do not significantly outperform non-Bayesian agents; if the prior knowledge states, essentially, that it is an MDP and the transition functions can be any multinomial, this does not give the Bayesian agent a leg up on other agents, since this assumption will usually be baked into the algorithm design from the beginning.
+
+\subsection{Gaussian bandits}\note{cite}
+
+For a bandit problem in which the reward for an arm can be any real number, the Gaussian bandit prior can be used.
+\begin{eqnarray}
+\label{intro:eqn:gband-mu}\mu^a &\sim& N(\mu_0, \sigma^2_0)\\
+\label{intro:eqn:gband-r}R_t^a &\sim& N(\mu^a, \sigma^2)
+\end{eqnarray}
+
+In Equations~\ref{intro:eqn:gband-mu}~and~\ref{intro:eqn:gband-r}, $\mu_0$ and $\sigma_0$ are parameters indicating tendencies for reward averages, and $\sigma$ is a parameter indicating the variance in the reward seen for a particular arm. $\mu^a$ is the expected reward acquired from pulling arm $a$, and $R_t^a$ is the reward acquired from pulling arm $a$ for the $t^{\mbox{th}}$ time.
+
+Like the FDM prior in Section~\ref{intro:fdm}, the Gaussian bandit prior makes use of conjugacy for efficient inference. The known-variance Normal distribution is its own conjugate prior.
+\begin{eqnarray}
+\label{intro:eqn:gband-post}\mu^a|R^a &\sim& N\left(\left(\frac{\mu_0}{\sigma_0^2} + \frac{\sum_{t=1}^T R_t^a}{\sigma^2}\right)/\left(\frac 1 {\sigma_0^2} + \frac T {\sigma^2} \right), \left(\frac 1 {\sigma_0^2} + \frac T {\sigma^2} \right)^{-1}\right)
+\end{eqnarray}
+
+While the Gaussian bandit prior does not model all possible continuous-reward distributions like the FDM prior models all possible discrete MDPs, it can still be used to trade-off uncertainty in the mean (indicated by the $\sigma_0^2$ parameter) and knowledge of the mean gathered from data, expressed in Equation~\ref{intro:eqn:gband-post}.
+
+%
+\ifperchapterbib%
+For the convenience of the reader, a list of references is provided at the end of each chapter (where applicable).
+\ifendbib%
+A bibliography containing all cited references is included at the \hyperref[sec:bibliography]{end of the dissertation}.
+\else\fi% end ifendbib
+\cbend%
+\else\fi% end ifperchapterbib

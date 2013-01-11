@@ -1,0 +1,401 @@
+
+In this chapter we discuss important related work that will influence, directly and indirectly, our later contributions.
+
+
+
+\section{Bayes-adaptive Markov decision processes}
+
+The Bayes-adaptive MDP, or BAMDP~\cite{duff03}, is an MDP whose optimal policy is the Bayes-optimal policy for some other unknown MDP that is drawn from a known prior. Every state in the BAMDP is a belief-state composed of a history, or the set of observations made by the agent so far, and the concrete state that the agent is currently in.
+
+The transition function of the BAMDP is defined as follows.
+\begin{eqnarray}
+\label{rel:bamdp:prob}
+P(\langle s', h\cup (s,a,s',r)\rangle, r | \langle s, h\rangle, a) =& \int_M P(s', r | s, a, M)\phi(M|h) dM,
+\end{eqnarray}
+
+where $\langle s, h\rangle$ is the belief-state where the agent begins, and is composed of the concrete state $s$ and history $h$. $h$ is the summary of all transitions observed by the agent over the course of its lifetime. Here they are represented by $(s, a, s',r)$ tuples detailing the beginning and ending concrete states, the action taken and the reward received.
+
+The likelihood is taken by integrating out the underlying ``true'' MDP, according to MDP's posterior distribution. The generative process is equivalent to first sampling an MDP $M$ from the posterior distribution $\phi(M|h)$, and then sampling the next state and reward $s', r$ from the MDP.
+
+By constructing the BAMDP according to~\ref{rel:bamdp:prob}, the optimal policy is identical to the Bayes-optimal policy in the learning setting. This is because the succession of transition likelihoods is exactly the same as those indicated in the Bayesian model.
+
+Unfortunately the BAMDP has a potentially infinite number of states, since each possible history indicates a different belief state. However, as the number of observations from a particular concrete state and using a particular action grows large, the distribution over the possible next concrete states converges, allowing a clever algorithm designer to collect large sets of belief states together into equivalent classes, for the purposes of planning.
+
+
+
+\section{Bayesian Dynamic Programming}
+
+\begin{algorithm}[tb]
+	\caption{$\mbox{Bayesian~DP}(s, \Phi, K)$}
+	\label{alg:bdp}
+	\KwIn{initial state $s$, prior $\Phi$, \#steps $K$}
+	$O \leftarrow \{\}$\\
+	\For {ever} {
+		$M \sim \Phi|O$\\
+		$\pi \leftarrow \mbox{solve}(M)$\\
+		\For {$K$ times} {
+			$a \leftarrow \pi(s)$\\
+			$s', r \leftarrow \mbox{perform}(a)$\\
+			$O \leftarrow O \cup \{(s, a, s', r)\} $\\
+			$s \leftarrow s'$
+		}
+	}
+\end{algorithm}
+
+Bayesian Dynamic Programming~\cite{strens00}, or {\bf Bayesian~DP}, is one of the first model-based reinformcement learning algorithms to take advantage of posterior sampling. The agent requires a model prior and a parameter $K$, which tells the agent how many steps should be taken between samples.
+
+Algorithm~\ref{alg:bdp} lays out the {\bf Bayesian~DP} algorithm. The agent starts in some initial state with no information about the environment except that which can be gleaned from the prior $\Phi$. Before taking any actions, the agent samples a model $M$ from the posterior $\Phi|O$, where $\Phi$ is the model prior and $O$ is the set of observations recorded so far. Once $M$ is sampled from the posterior, it is solved optimally by whatever planning algorithm the designer prefers. The resulting policy $\pi$ is acted upon for the next $K$ steps, and each step is recorded and added to the set of observations. After $K$ actions have been performed, a new model is sampled from the updated posterior, and the process is repeated until the grad student gets bored.
+
+The act of periodically sampling from the posterior is intended to give the agent glimpses of optimistic worlds. Some of the times a sample is drawn, a state that the agent has not visited much will appear better than it actually is, drawing the agent towards this relatively unknown state. On the other hand, some times that unknown state will appear to have a very low value, causing the agent to avoid it. State-action pairs that the agent has experienced many times in the past will have relatively stable dynamics, and will usually have a consistent value with respect to its neighboring states.
+
+The fact that some samples will make an unknown state appear attractive and other samples will make the same unknown state appear unattractive requires {\bf Bayesian~DP} to be careful with when and how often it samples new models.
+
+The parameter $K$, which is the number of steps taken between samples, should be chosen to approximate the length of a trial (in situations where there is a goal state) or the width of the MDP (maximum expected number of steps to get from any given state to any other given state) when there is an infinite horizon.
+
+The idea here is that the agent should be able to reach any particular state it wants before the next sample is taken. Consider a simple {\emph chain} MDP, where only the two states on the end are unknown. In a given posterior sample, one of the two ends may have a higher apparent value than the other. In the next sample, the relative values of these two states may switch. If a new sample is taken before the agent can reach one of the ends (and therefore learn about its dynamics), thrashing can occur, resulting in an exponential number of of steps (relative to the number of states) before knowledge is gained.
+
+Spacing out the MDP samples temporally allows the agent to visit at least one unknown (and optimistically sampled) state every $K$ steps (assuming that any of the unknown states are optimistic in the posterior sample for those $K$ steps).
+
+
+
+\section{BEETLE}
+
+Bayesian Exploration Exploitation Tradeoff in LEarning, or {\bf BEETLE}~\cite{poupart06} treats the task of Bayes-optimal behavior as optimal behavior in a POMDP whose hidden state is the MDP describing the transition probabilities between the observed states.
+
+This algorithm assumed a flat Dirichlet multinomial prior, where each of the MDP's next-state distributions are drawn from a Dirichlet distribution. {\bf BEETLE} then uses an iterative method to approximate the Bayes-expected value of each state, and make decisions based upon these results.
+
+
+
+\section{Bayesian Sparse Sampling}
+
+Bayesian Sparse Sampling~\cite{wang05} is an adaptation of Sparse Sampling that uses a model prior and a targetted method of choosing actions while planning.
+
+Where Sparse Sampling is only able to estimate a state's value for a particular concrete model, Bayesian Sparse Sampling works with uncertainty, codified by a provided model prior. Every time a next-state is needed to further build the search tree, a model is sampled from the posterior, and the next-state is sampled from that model. Future next-states in the sub-tree of the newly sampled next-state will include this generated transition in their observation sets, allowing the sub-trees to simulate learning.
+
+The method of action-selection differs from Sparse Sampling in that rather than trying each action a number of times, Bayesian Sparse Sampling will run a series of roll-outs. To choose the action at each stage in the roll-out, Bayesian Sparse Sampling samples a model from the posterior and finds the optimal action in the sampled model from the current state, and chooses that state.
+
+Choosing actions by identifying the optimal action in posterior samples allows Bayesian Sparse Sampling to target its exploration to attempt only actions that have a chance of being optimal. Also, when the posterior has converged to something close to the truth, the sampled model will be consistent and correct, and Bayesian Sparse Sampling will only choose the best action, wasting no samples in its value estimation.
+
+This algorithm has some efficiency issues; it requires sampling from the posterior and solving for the true optimal action in the inner loop. Both posterior sampling and model solving can often be computationally difficult. There are cases where the posterior sampling and model solving can be done efficiently, for instance when the model is a bandit problem with the Beta prior~\cite{wang05}.
+
+
+
+\section{Bayesian Exploration Bonus}
+
+The {\bf BEB}~\cite{kolter09} algorithm is a computationally efficient method to achieve near Bayes-optimal behavior in discrete state- and action-spaces when using a Dirichlet prior.
+
+The algorithm uses a flat Dirichlet multinomial (FDM) prior, which states that
+\begin{eqnarray}
+\theta^{s,a}&\sim&Dirichlet(\alpha),\\
+P(s'|s,a)&=&\theta^{s,a}_{s'},
+\end{eqnarray}
+where $\alpha$ is a tuning parameter which correlates with variance in the next-state distribution.
+
+{\bf BEB} assumes the reward function is known.
+
+To drive exploration, {\bf BEB} adds an internal bonus to the reward received when taking a given action from a given state. It acts greedily according to $\hat Q(s,a)$.
+\begin{eqnarray}
+\hat Q(s,a)&=&R(s,a)+B(s,a)+\gamma \sum_{s'} P(s'|s,a)\hat V(s'),\\
+\hat V(s)&=& \max_a \hat Q(s, a),\\
+\label{eqn:rel:beb:bonus}
+B(s,a)&=&\frac\beta{1+n(s,a)},
+\end{eqnarray}
+where $n(s,a)$ is the number of times that action $a$ has been taken from state $s$.
+
+This algorithm is similar to Mean-Based Interval Estimation ({\bf MBIE})~\cite{strehl06}, except that {\bf MBIE} uses the square root of the visit count in its bonus. This difference causes the bonus term used by {\bf MBIE} to decay more slowly, and that extra conservativity allows {\bf MBIE} to be a PAC-MDP algorithm, where {\bf BEB} is a near Bayes-optimal algorithm when the prior is the flat Dirichlet multinomial.
+
+\subsection{Variance-based BEB}
+
+Variance-based {\bf BEB}, or {\bf VBEB}~\cite{sorg10}, is an adaptation of {\bf BEB} that can make use of a flexible prior, or one that isn't restricted to the flat Dirichlet multinomial.
+
+The {\bf VBEB} algorithm provides a framework for analyzing an arbitrary prior, and creating a bonus term based on the posterior variance for the state-action pair to which the bonus will be applied. In this framework, the flat Dirichlet multinomial gets the bonus term from Equation~\ref{eqn:rel:beb:bonus}, and it will be different for other priors.
+
+
+
+\section{RMAX}
+
+The {\bf RMAX}~\cite{brafman03} algorithm is a simple and robust method to balance exploration and exploitation in the reinforcement learning setting. The original algorithm addresses only discrete state- and action-spaces, but the ideas apply in general.
+
+To effectively use {\bf RMAX}, the agent designer needs a metric to determine whether or not a particular state-action pair is \emph{known}. In the discrete state and action case, the agent can count how many times it has tried a given action pair. If that number exceeds a predetermined threshold, the given pair is \emph{known}. Otherwise, it is \emph{unknown}.
+
+To guide the {\bf RMAX} agent, a model is constructed using the maximum-likelihood estimation taken from the agent's observations, except that unknown state-action pairs transition only to a nirvana state, or a state with the highest possible value. Known states have the transition dynamics given by the MLE. The agent then acts greedily according to this model.
+
+Clamping unknown states at very high value will draw the agent towards these states if there is any chance that visiting those states is the optimal thing to do.
+
+Because the model maintained by {\bf RMAX} is accurate (when the state is known), optimistic (when the state is unknown) and there is a bounded number of times that the agent can be surprised (because there is a finite number of state-action pairs that can become known), the algorithm is PAC-MDP. That is, it will make only a small number of suboptimal decisions over the course of its lifetime.
+
+\subsection{Potential-based RMAX}
+
+As it stands, the {\bf RMAX} algorithm cannot make use of any prior knowledge. All unknown states are assigned the highest possible value, and the agent is drawn to each of them in a way that depends only on how quickly it can reach them.
+
+The {\bf Potential-RMAX}~\cite{asmuth08} algorithm addresses this deficiency by incorporating of a potential function $\phi(s)$. This potential function must be \emph{admissible}. That is, $\forall_s ~ V(s) \geq \phi(s)$; the potential function's value for a given state mustnever be less than the true value for the state. This is admissibility requirement is common in heuristic-based search algorithms, such as A*\note{do i even have to cite for A*?}.
+
+This algorithm works by assigning unknown states a value of $\phi(s)$, rather than $\Vmax$, the highest possible value. Setting $\phi(s)=\Vmax$ is allowed, since $\Vmax$ automatically satisfies the admissibility requirement.
+
+On the downside, this algorithm is very conservative, like the rest of the {\bf RMAX} family. Requiring a fixed number of visits to a state-action pair before it becomes known means a lot of exploration steps, some of which might not be necessary in practice.
+
+
+
+\section{Instance-based model learning}
+
+Instance-based methods represent functions by concrete examples and use a predefined similarity function to generalize to novel inputs. An instance is the tuple $\langle s, a, s', r \rangle$, or the combination of state, action, next state and reward.
+
+Over the course of its lifetime, the agent gathers a large set of $\langle s, a\rangle \rightarrow \langle s', r \rangle$ mappings. When it observes a new state-action pair, it can compare it to those it has seen in the past and predict a next-state and reward that fits with those already observed.
+
+The ideas behind instance-based model learning can be combined with the {\bf RMAX} algorithm to create {\bf Fitted-RMAX}~\cite{jong07}. {\bf Fitted-RMAX} uses a Gaussian kernel to determine the similarity between two states:
+\begin{eqnarray}
+d(s_1,s_2)&=&\exp\left(\frac{||s_1 - s_2||^2_2}{b}\right),
+\end{eqnarray}
+where $b$ is a \emph{width} parameter used to determine how much distance affects the similarity between two states.
+
+The possible next-states and rewards are then taken from a weighted average of those seen before when taking the action in question, where each possibility $\langle s'_i, r_i \rangle$ is weighted by $d(s_t, s_i)$, where $s_t$ is the state from which the agent is considering taking an action.
+
+Since this is a fitted version of {\bf RMAX}, there needs to be some metric of knownness. One way to find one is to take the sum of the similarity scores between the state in question and all previously experienced states, and declare a threshold $B$, over which the knownness metric declares a state to be known.
+
+Unknown states are then assigned maximum value, according to the rules of {\bf RMAX}.
+
+Once a policy is found for the {\bf Fitted-RMAX} model, using some existing continuous-state planner, the agent will be drawn to explore states that are either unknown or have high value, like the original {\bf RMAX} on which it is based.
+
+
+
+\section{Sparse Sampling}
+
+\begin{algorithm}[tb]
+	\caption{$\mbox{Sparse~Sampling}(s, P, R, \gamma, \epsilon, \delta)$}
+	\label{alg:ss}
+	\KwIn{initial state $s$, next-state sampler $P$, reward function $R$, discount factor $\gamma$, accuracy $\epsilon$, probability of failure $\delta$}
+	\KwOut{estimated value $V$}
+	$\Rmax \leftarrow \max_{sa}R_{sa}$\\
+	$\Vmax \leftarrow \frac{\Rmax}{1-\gamma}$\\
+	$\lambda \leftarrow \frac{\epsilon(1-\gamma)^2} 4$\\
+	$k \leftarrow \#\mbox{actions}$\\
+	$H \leftarrow \left\lceil\log_\gamma(\lambda/\Vmax)\right\rceil$\\
+	$C \leftarrow \frac {\Vmax^2}{\lambda^2}\left(2H\log\frac{kH\Vmax^2}{\lambda^2}+\log\frac{\Rmax}{\lambda}\right)$\\
+	$V \leftarrow \mbox{Sparse~Sampling~Recursion}(s, P, R, \gamma, H, C)$\\
+	\Return $V$
+\end{algorithm}
+
+\begin{algorithm}[tb]
+	\caption{$\mbox{Sparse~Sampling~Recursion}(s, P, R, \gamma, d, C)$}
+	\label{alg:ssr}
+	\KwIn{initial state $s$, next-state sampler $P$, reward function $R$, discount factor $\gamma$, depth $d$, branching factor $C$}
+	\KwOut{estimated value $V$}
+	\If {d = 0} {
+		$V \leftarrow 0$
+	}
+	\Else {
+		\For {$a \in A$} {
+			$Q_a \leftarrow R_{sa}$\\
+			\For {$C$ times} {
+				$s' \sim P_{sa}$\\
+				$V' \leftarrow \mbox{Sparse~Sampling~Recursion}(s', P, R, \gamma, d-1, C)$\\
+				$Q_a \leftarrow Q_a + \frac {\gamma V'} C$
+			}
+		}
+		$V \leftarrow \max_a Q_a$
+	}
+	\Return $V$
+\end{algorithm}
+
+{\bf Sparse~Sampling}~\cite{kearns99}, outlined in Algoritm~\ref{alg:ss}, is a Monte-carlo tree search ({\bf MCTS}) algorithm for value estimation on MDPs. This algorithm works by performing exhaustive search, using Monte-carlo sampling to estimate transition probabilities.
+
+Many value-estimation algorithms, especially those preceding the publication of {\bf Sparse Sampling}, have a strong linear or super-linear dependence on the number of states in the MDP. This dependence often arises as a result of the algorithm's attempt to estimate the value of all states in the MDP.
+
+{\bf Sparse~Sampling} reduces the dependence on the number of states by only considering states that are likely to be reached from the state whose value is being estimated. This state, referred to as the root, is the root of a Monte-carlo search tree. Each node in the tree is one particular state in the MDP (though more than one node can share a single state).
+
+This algorithm makes use of a next-state generator $P$ to generate transition samples. If the runtime required to sample from $P_{sa}$ does not depend on the number of states, then {\bf Sparse~Sampling}'s runtime will also not depend on the number of states.
+
+While this condition will not hold true for general MDPs, it makes practical sense for many situations. For example, in a continuous-state MDP (infinite number of states) that uses an offset drawn from a normal distribution to determine the next state, the amount of time required to sample from that normal distribution will depend only on the number of state features, rather than the number of states. Also, in a gridworld the next state is often chosen from those states adjacent to the current state, and be sampled very quickly.
+
+\subsection{Algorithm}
+
+The {\bf Sparse~Sampling} algorithm works by sampling a fixed number $C$ next-states for each action, when taken from the root. The value of those states is estimated recursively and with a search-depth of one less than the current search depth. As a base case, if the current search depth is zero, the value is approximated by $0$.
+
+The algorithm must be provided a probability of success $1-\delta$, required accuracy $\epsilon$ and discount factor $\gamma$. These parameters inform {\bf Sparse~Sampling}'s choice of 
+
+The leaf nodes in the search tree, those whose value is approximated by $0$, are too far in the future, according to the discount factor $\gamma$ and accuracy constraint $\epsilon$, to have a significant affect on the value of the root.
+
+
+\subsection{Proof of accuracy}
+
+Because later work in this dissertation depends on it, in this section we present a proof that {\bf Sparse~Sampling} will make an $\epsilon$--accurate value estimation of the root state with probability at least $1-\delta$.
+
+Let $V^*(s)$ be the true value of state $s$.
+
+Let $Q^*(s,a)$ be the true Q--value of performing action $a$ in state $s$.
+
+Let $U^*(s,a) = R_{sa}+\gamma\frac 1 C \sum_{i=1}^C V^*(s_i)$, where $s_i\sim P_{sa}$, be the one-step approximation of $Q^*(s,a)$.
+
+\subsubsection{{\bf Sparse~Sampling} accuracy lemma} With high probability, $Q^*(s,a)$ is close to $U^*(s,a)$.
+\begin{eqnarray}
+|Q^*(s,a)-U^*(s,a)| &=& |R_{sa}+\gamma E_{s'\sim P_{sa}}[V^*(s')] - R_{sa} - \gamma \frac 1 C \sum_{i=1}^C V^*(s_i)|\\
+&=& \gamma |E_{s'\sim P_{sa}}[V^*(s')] - \frac 1 C \sum_{i=1}^C V^*(s_i)|
+\end{eqnarray}
+Claim: $P(|E_{s'\sim P_{sa}}[V^*(s')] - \bar{V^*_C}| \leq \lambda) \geq 1-e^{-\lambda^2 C / {\Vmax^2}}$.
+
+A version of the Chernoff bound states that, for a random variable $X\in[\alpha,\beta]$,
+$$P(|E[X] - \bar{X_n}| \leq \eta) \geq 1-2e^{\eta^2 n / 2 b}, b=\frac{(\alpha-\beta)^2}4.$$
+In our case, $\eta=\lambda$ and $b=\Vmax^2$.\note{qed symbol}
+
+Let $Q^n$ and $V^n$ be the estimated Q-values and Values $n$ steps from the horizon.
+\begin{eqnarray}
+V^n(s) &=& \max_a Q^n(s,a),\\
+Q^n(s,a)&=&R_{sa}+\gamma \frac 1 C \sum_{i=1}^C V^{n-1}(s_i),\\
+Q^0(s,a)&=&0.
+\end{eqnarray}
+
+Let $\alpha_n$ be a parameter that will be used to bound the difference between $Q^*$ and $Q^n$.
+\begin{eqnarray}
+\alpha_{n+1}&=&\gamma(\lambda + \alpha_n),\\
+\alpha_0&=&\Vmax.
+\end{eqnarray}
+Leading us to the conclusion that
+\begin{eqnarray}
+\alpha_H &=& \left(\sum_{i=1}^H \gamma^i \lambda\right)+\gamma^H\Vmax\\
+ &\leq& \frac \lambda {1-\gamma}+\gamma^H\Vmax.
+\end{eqnarray}
+
+\subsubsection{{\bf Sparse~Sampling} probability lemma} With high probability, $Q^*(s,a)$ is close to $Q^n(s,a)$.
+
+\begin{eqnarray}
+|Q^*(s,a)-Q^n(s,a)| &=& \gamma\left|E_{s'\sim P_{sa}}[V^*(s')] - \frac 1 C \sum_i V^{n-1}(s_i)\right| \nonumber\\
+&\leq& \gamma \left(\left|E_{s'\sim P_{sa}}[V^*(s')] - \frac 1 C \sum_i V^*(s_i)\right| + \left|\frac 1 C \sum_i V^*(s_i) - \frac 1 C \sum_i V^{n-1}(s_i)\right|\right)\\
+&\leq& \gamma (\lambda + \alpha_n)\\
+&\leq& \alpha_{n+1}.
+\end{eqnarray}
+
+This inequality depends on the fact that
+$$\forall_{s,a}\left|E_{s'\sim P_{sa}}[V^*(s')] - \frac 1 C \sum_i V^*(s_i)\right|\leq \lambda,$$
+which needs to be true for each one of $(kC)^H$ estimates, where $k$ is the number of actions and $H$ is the height of the sampled tree. The likelihood of these all happening at the same time is
+$$1-(kC)^H\exp\left(-\frac{\lambda^2 C}{\Vmax^2}\right).$$
+
+\subsubsection{Values for parameters}
+
+We can now bound 
+$$|Q^*(s,a)-Q^H(s,a)|\leq \alpha_H \leq \gamma^H\Vmax + \frac{\lambda}{1-\gamma}.$$
+
+Let $H=\log_{\gamma}(\lambda/\Vmax)$. Then
+\begin{eqnarray}
+|Q^*(s,a)-Q^H(s,a)|&\leq& \lambda + \frac{\lambda}{1-\gamma}\\
+&\leq& \frac{2\lambda-\lambda\gamma}{1-\gamma} \\
+&\leq& \frac{2\lambda}{1-\gamma}.
+\end{eqnarray}
+
+Let $\lambda = \frac {\epsilon(1-\gamma)^2}{4}$. Then
+$$|Q^*(s,a)-Q^H(s,a)| \leq \frac {\epsilon(1-\gamma)}2.$$
+
+
+
+\section{Upper Condidence bounds on Trees}
+
+\begin{algorithm}[tb]
+	\caption{$\mbox{UCT}(s, P, R, \gamma, C)$}
+	\label{alg:ss}
+	\KwIn{initial state $s$, next-state sampler $P$, reward function $R$, discount factor $\gamma$, {\bf UCB} parameter $C$}
+	\KwOut{estimated value $V$}
+	$\forall_{s} ~ n_{s} \leftarrow 0$\\
+	$\forall_{s} ~ V_{s} \leftarrow 0$\\
+	$\forall_{s,a} ~ n_{s,a} \leftarrow 0$\\
+	$\forall_{s,a} ~ Q_{s,a} \leftarrow 0$\\
+
+	\If {$s$ is terminal} {
+		$V_s \leftarrow 0$\\
+		\Return $V_s$
+	}
+	\If {$n_s \neq 0$} {
+		$\forall_a ~ B_{s,a} \leftarrow 2 C \sqrt{\frac{\log n_{s}}{n_{s,a}}}$\\
+		$a \leftarrow \mbox{argmax}_a ~ Q_{s,a}+B_{s,a}$
+	}
+	\Else {
+		$a \leftarrow \mbox{randomly chosen action}$
+	}
+	$s' \leftarrow P(s,a)$\\
+	$r \leftarrow R(s,a)$\\
+	$V_{s'} \leftarrow \mbox{UCT}(s', P, R, \gamma, C)$\\
+	$\hat Q_{s,a} \leftarrow r+\gamma v_{s'}$\\
+	$Q_{s,a} \leftarrow (n_{s,a}Q_{s,a}+\hat Q_{s,a})/(n_{s,a}+1)$\\
+	$n_s \leftarrow n_s+1$\\
+	$n_{s,a} \leftarrow n_{s,a}+1$\\
+	$V_s \leftarrow \max_a Q_{s,a}$\\
+	\Return $V_s$
+\end{algorithm}
+
+{\bf Upper Confidence bounds on Trees}~\cite{kocsis06}, or {\bf UCT}, is a widely-used rollout-based {\bf MCTS} value-estimation algorithm. {\bf UCT} is an application of the bandit algorithm {\bf Upper Confidence Bounds}~\cite{auer02}, or {\bf UCB}, to tree search. There are multiple variants to the details of how {\bf UCT} can work, and since none of them relate directly to the work presented in this disseration, only one simple version of {\bf UCT} will be discussed.
+
+The {\bf UTC} algorithm works by running a series of roll-outs through the state space, and making value estimates based on averages of observed returns. The roll-outs follow trajectories generated by applying some exploration policy to the next-state sampler $P$. Once each trajectory has finished, the total discounted return experienced by each state-action pair is averaged with its previously observed returns.
+
+The key to {\bf UCT} is how it chooses its rollout policy. Variations exist, but the part they all have in common is the use of {\bf UCB} for choosing actions in states that have been visited before.
+
+The bandit algorithm {\bf UCB} mixes exploration and exploitation. The algorithm will always choose the arm that has the greatest sum of average observed reward and a bonus term. The bonus term is a function of the number of times the arm in question has been pulled before, and how many chances the algorithm has had to pull an arm in total.
+
+The bonus term used by {\bf UCB} for arm $i$ is $2 C \sqrt{\frac{\log t}{n_i}}$, where $t$ is the total number of pulls on any arm, $n_i$ is the number of times arm $i$ has been pulled, and $C$ is a constant parameter that can be tuned. This bonus term has the nice properties of going to zero as $t$ goes to infinity (allowing {\bf UCB} to rely completely on average observed reward), and being infinite when $n_i$ is zero (forcing {\bf UCB} to try each action at least once).
+
+{\bf UCT} treats every possible state as a separate bandit algorithm, where each action represents a different bandit arm. As it visits a state again and again in its roll-outs, the {\bf UCB} strategy will push it towards areas of the state-space that are either less explored or have had more favorable returns. This algorithm is also extremely computationally efficient, assuming next-states and rewards can be sampled quickly.
+
+\section{Forward Search Sparse Sampling}
+
+{\bf Forward Search Sparse Sampling}~\cite{walsh10}, or {\bf FSSS}, is another MCTS planner that preferentially expands the search tree through the use of rollouts. It is outlined in Algorithm~\ref{alg:fs3}. Unlike either {\bf Bayesian Sparse Sampling} or {\bf UCT}, it retains the attractive guarantees of the original {\bf Sparse Sampling} algorithm. {\bf FSSS} also maintains hard upper and lower bounds on the values for each state and action so as to direct the rollouts; actions are chosen greedily according to the upper bound on the value, and the next state is chosen such that it is the most uncertain of the available candidates (according to the difference in its upper and lower bounds).
+
+{\bf FSSS} will find the action to take from a given state $s_0$, which will be the root of the search tree.  The tree is expanded by running $t$ trajectories, or rollouts, of length $d$. There are theoretically justified ways to choose $t$ and $d$, but in practical applications they are knobs used to balance computational overhead and accuracy. To run a single rollout, the agent will call Algorithm~\ref{alg:fs3-rollout}, $\mbox{FSSS-Rollout}(s_0, d, 0, M)$.
+%, $T$ times. 
+The values $U_d(s)$ and $L_d(s)$ are the upper and lower bounds on the value of the node for state $s$ at depth $d$, respectively. Each time a rollout is performed, the tree will be expanded. After at most $(AC)^d$ rollouts are finished (but often less in practice), {\bf FSSS} will have expanded the tree as much as is possibly useful, and will agree with the action chosen by {\bf Sparse Sampling}.
+
+The fact that {\bf FSSS} maintains upper bounds on the values for each state it considers will be useful when an optimistic planner is required. It is often the case that to accurately find (or even approximate) a state's value will end up being very difficult or intractable. {\bf FSSS} promises that, with high probability, the true value for a given state will be somewhere in between $U(s)$ and $L(s)$. Maintaining this range of uncertainty can be useful for the algorithm employing {\bf FSSS} as a planning algorithm, as we shall see in Chapter~\ref{chap:bfs3}.
+
+\begin{algorithm}[tb]
+	\caption{$\mbox{FSSS}(s, d, t, M)$}
+	\label{alg:fs3}
+	\KwIn{state $s$, max depth $d$, \#trajectories $t$, MDP $M$}
+	\KwOut{estimated value for state $s$}
+
+	\For {$t$ times} {
+		$\mbox{FSSS-Rollout}(s, d, 0, M)$
+	}
+	$\hat V(s) \leftarrow \max_a U_d(s, a)$\\
+	\Return $\hat V(s)$
+\end{algorithm}
+
+\begin{algorithm}[tb]
+	\caption{$\mbox{FSSS-Rollout}(s, d, l, M)$}
+	\label{alg:fs3-rollout}
+	\KwIn{state $s$, max depth $d$, current depth $l$, MDP $M$}
+	\If{$\mbox{Terminal}(s)$}{
+		$U_d(s)=L_d(s)=0$\\
+		\Return
+	}
+	\If {$d=l$} {
+		\Return
+	}
+	\If {$\neg\mbox{Visited}_d(s)$} {
+		$\mbox{Visited}_d(s) \leftarrow \mbox{true}$\\
+		\ForEach {$a \in A$} {
+			$R_d(s,a),\mbox{Count}_d(s,a,s'),\mbox{Children}_d(s,a)$\\
+			\ \ \ $\leftarrow 0, 0, \{\}$\\
+			\For {$C$ times} {
+				$s', r \sim T_M(s, a), R_M(s,a)$ \\
+				$\mbox{Count}_d(s,a,s') \leftarrow \mbox{Count}_d(s,a,s') + 1$ \\
+				$\mbox{Children}_d(s,a) \leftarrow \mbox{Children}_d(s,a) \cup \{s'\}$ \\
+				$R_d(s,a) \leftarrow R_d(s, a)+r/C$\\
+				\If {$\neg\mbox{Visited}_{d+1}(s')$} {
+					 $U_{d+1}(s'), L_{d+1}(s') = \Vmax, \Vmin$
+				}
+			}
+		}
+		$\mbox{Bellman-backup}(s, d)$
+	}
+	$a \leftarrow \argmax_a U_d(s,a)$\\
+	$s' \leftarrow \argmax_{s'} (U_{d+1}(s')-L_{d+1}(s')) \cdot \mbox{Count}_d(s,a,s')$\\
+	$\mbox{FSSS-Rollout}(s', d, l+1, M)$\\
+	$\mbox{Bellman-backup}(s, d)$\\
+	\Return
+\end{algorithm}
+
+
+%
+\ifperchapterbib%
+For the convenience of the reader, a list of references is provided at the end of each chapter (where applicable).
+\ifendbib%
+%A bibliography containing all cited references is included at the \hyperref[sec:bibliography]{end of the dissertation}.
+\else\fi% end ifendbib
+%\cbend%
+\else\fi% end ifperchapterbib

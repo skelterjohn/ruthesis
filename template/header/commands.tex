@@ -44,8 +44,19 @@
 \newcommand{\naive}{na\"{\i}ve}
 \newcommand{\Naive}{Na\"{\i}ve}
 
-%% Maybe you have a file of notation commands that you always use.
-%% No problem.  Just import it here.  Note that since we imported this file
-%% (rather than \inputting or \including it), the path to your file is
-%% relative to this directory.
-\import{}{hapticNotationCommands} 
+
+\newcommand{\argmax}{\operatornamewithlimits{argmax}}
+\newcommand{\argmin}{\operatornamewithlimits{argmin}}
+\newcommand{\larrow}{\operatornamewithlimits{\leftarrow}}
+\newcommand{\Rmax}{R_{\rm max}}
+\newcommand{\Rmin}{R_{\rm min}}
+\newcommand{\Vmax}{V_{\rm max}}
+\newcommand{\Vmin}{V_{\rm min}}
+
+\newcommand{\vchoose}[2]{\frac {\left(\sum_#2 #1_#2\right)!}{\prod_#2 #1_#2!}}
+\newcommand{\vgamma}[2]{\frac {\Gamma\left(\sum_#2 #1_#2\right)}{\prod_#2 \Gamma(#1_#2)}}
+\newcommand{\vgammainv}[2]{\frac {\prod_#2 \Gamma(#1_#2)}{\Gamma\left(\sum_#2 #1_#2\right)}}
+
+\newcommand{\prior}{\textsf}
+\newcommand{\alg}{\textbf}
+\newcommand{\env}{\emph}

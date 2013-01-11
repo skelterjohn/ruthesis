@@ -8,38 +8,7 @@
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% The Graduate School Style Guide doesn't specify a typeface to use, only that
-%% it should be easy-to-read.
-%% The mathptmx package changes the default roman font family to Times, and uses
-%% the virtual mathptmx fonts for math.
-%\usepackage{mathptmx}
-%% The mathpazo package changes the default roman font family to Adobe
-%% Palatino, and uses the virtual mathpazo fonts for math.
-\usepackage{mathpazo}
-%% The times package changes the default roman font family to Times, but leaves
-%% the default math font as Computer Modern
-%\usepackage{times}
-%% The helvet package changes the sans serif font family to Helvetica.
-\usepackage{helvet}
-
-%% The ifpdf package makes available the pdf boolean that (supposedly)
-%% indicates whether the document is being compiled by pdfLaTeX (or some
-%% equivalent).  This lets the author condition such things as the graphics
-%% extensions, so that the source can be compiled by plain LaTeX as well as
-%% more pdfish variants.
-\usepackage{ifpdf}
-
-%% The import package simplifies a tree-like document source code structure.
-%% When the \include and \input commands load files, any nested \input or
-%% \include (or \includegraphics) commands are treated as though they were
-%% issued at the document root level.
-%% With the \import command, subsequently included files are loaded relative
-%% to the imported directory.
-\usepackage{import}
-
-%% Everybody needs a little math formatting from the good people at the
-%% American Mathematical Society
-\usepackage{amsmath}
+\input{header/packages}
 
 %% The \tablespage command induces the generation of the List of Tables page
 \tablespage
@@ -219,6 +188,7 @@
 \def\sectionautorefname{{S}ection}
 \def\subsectionautorefname{\sectionautorefname}
 \newcommand{\subfigureautorefname}{\figureautorefname}
+
 
 %% Import the file of author-defined common macros
 \import{header/}{commands} 

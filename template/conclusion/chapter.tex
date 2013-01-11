@@ -1,0 +1,11 @@
+
+One goal of Bayesian approaches to machine learning is to make computer learners more human in the predictions they make. Humans are very good at knowledge transfer, or the application of observations made in the past to predictions that need to be made in the future. The use of a prior is an effective and principled way to bring in knowledge from some other domain (or from an algorithm designer's imagination).
+
+The distinction between prior knowledge and algorithm is one that is important and natural, and allows the agent designer to narrow his or her focus. The ability to develop a prior (and the associated inference mechanism) is sufficient for bestowing an agent with some sort of intrinsic knowledge, and this prior can then be plugged directly into \alg{Bayesian DP}, \alg{BOSS}, \alg{BFS3}, or any other algorithm built in this fashion.
+
+Considering the inference separately from the decision-making is also advantageous in that there exists a large and active community focused on Bayesian model-building and inference. In fact, Latent  Dirichlet Allocation~\cite{blei2003latent} provided the original motivation and inspiration for the \prior{Cluster} and other related CRP-based priors.
+
+\section{Contributions}
+
+The \alg{BFS3} algorithm and its corresponding analysis is the direct result of my efforts. I developed the \prior{Cluster} and \prior{ROAR} priors. All experiments presented in Chapter~\ref{sec:experiments} are the result of code that I wrote.
+

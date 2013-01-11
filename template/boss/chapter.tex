@@ -1,0 +1,212 @@
+\alg{Best Of Sampled Set}~\cite{asmuth09}, or \alg{BOSS}, is a Bayesian approach to model-based reinforcement learning. This algorithm makes use of a general prior to sample entire models from the posterior. It works by sampling a set of models and combining them (see Figure~\ref{sec:boss:hyper-model}) in a way that helps it choose the best in each situation.
+
+This algorithm follows a strong tradition in model-based reinforcement learners of optimism in the face of uncertainty. One of the best-known model-based RL algorithms, \alg{RMAX}~\cite{brafman03}, approaches this idea by locking unknown states to the highest possible value, or $\Vmax$.
+
+\section{Algorithm}
+
+The \alg{BOSS} algorithm, outlined in Figure~\ref{boss:fig:boss-general}, makes use repeated samples from a posterior to create a hyper-model that can be used for trading off exploration and exploitation.
+
+
+\begin{figure}[t]
+\begin{center}
+\includegraphics[width=0.75\linewidth]{boss-loop}
+\caption{\alg{BOSS} combines observations made from the environment with the prior to create sets of posterior samples. These posterior samples are combined to create a hyper-model, which the planner takes as its model. The policy on the hyper-model is used in the environment.}
+\label{boss:fig:boss-general}
+\end{center}
+\end{figure}
+
+\begin{figure}[t]
+\begin{center}
+\includegraphics[width=0.9\linewidth]{hypermodels}
+\caption{A posterior is created by combining the prior with observations made by the agent in the environment. Every the agent decides that it has learned something, several samples are drawn from the posterior and combined to create the hyper-model.}
+\label{sec:boss:hyper-model}
+\end{center}
+\end{figure}
+
+
+
+There are two distinct cases to which \alg{BOSS} algorithm can be analyzed: in general and for discrete action and state spaces. The general case, for arbitrary state and action spaces, works as an effective exploration heuristic, while the specific case has formal efficiency guarantees. We will discuss first the general case, and then the discrete state-action case.
+
+\subsection{BOSS for general models} 
+
+The \alg{BOSS} algorithm requires two important black boxes: a posterior sampler and a planner. 
+
+It is important to remember that these two black boxes encapsulate entire fields of active and interesting research and should not be thought of as solved problems when designing an agent. However, using \alg{BOSS} as an exploration mechanism allows us to separate the reinforcement--learning problem from the planning and inference problems. This separation allows reinforcement--learning researchers to more easily draw on advances in other communities and to build on them.
+
+\subsubsection{The posterior sampler}
+
+The model posterior is the combination of a model prior (provided by the programmer) and observations (collected by the agent or provided by the environment). Techniques for deriving a posterior are covered in Chapter~\ref{bayes}.
+
+The posterior sampling black box must have the ability to sample from the set of worlds that are possible, given the observations made so far. The sampled model must be able to simulate transitions to next-states and rewards, given an action and the state it was taken from.
+
+As the agent explores the world, taking actions and receiving feedback, it feeds the observations it has received to the posterior sampler. As the posterior sampler gets more and more data, the models sampled from it become more and more accurate, at least where the concentration of samples is high enough.
+
+A posterior sampler can only be useful if some sort of accuracy guarantee is possible. That is, as more observations are made, models sampled from the posterior become closer to the truth, at least in the parts of the model associated with the observations. It is not always the case that a posterior will become more accurate with more data. A simple example is a prior that says that a coin will either always turn up heads or always turn up tails. The moment that both a head and tail have been observed, samples from the posterior become inaccurate since they still insist on a deterministic outcome even when it has been shown to be a stochastic environment.
+
+For the general case, I will not specify exact accuracy guarantees. For the special case in Section~\ref{boss:alg:disc} there is a concrete assumption that must be met to guarantee efficiency.
+
+\subsubsection{The planner}
+
+\alg{BOSS} requires a planner that, given a model, can (probably) find an (approximately) optimal action for any given state. The specifics of how the planner comes to its decision, including the number of samples drawn from the model and how much time is spent in computation, are orthogonal to \alg{BOSS}'s goal of low exploration complexity.
+
+Fortunately, since the planner's operation is orthogonal to how \alg{BOSS} works, the two can be analyzed separately.
+
+Although the planner is decoupled from \alg{BOSS}'s operation, it is tied closely to the posterior sampler. More accurately, it is closely tied to the models generated by the posterior sampler. The planner must be able to work in whatever model the posterior sampler can create. More than that, it must be able to work in a hyper-model, created by melding some number of the posterior sampler's models together, as discussed in Section~\ref{boss:alg:gen:hyper}.
+
+\subsubsection{Hyper-models}
+
+\label{boss:alg:gen:hyper}
+
+\begin{figure}[t]
+\begin{center}
+\includegraphics[width=0.45\linewidth]{hyper-construction}
+\includegraphics[width=0.45\linewidth]{hyper-stoch-construction}
+\caption{\textbf{Left:} Two samples with the same state- and action-spaces and deterministic dynamics are combined to create a hyper-model. Every action from each of the provided models exists in the hyper-model. \textbf{Right:} Two stochastic MDPs are combined to create a stochastic hyper-model MDP. In both cases, solid lines in the hyper-model indicate the action was taken from the upper sample, and dashed lines indicate the action was taken from the lower sample.}
+\label{sec:boss:hyper-model-creation}
+\end{center}
+\end{figure}
+
+
+\begin{figure}[t]
+\begin{center}
+\includegraphics[width=0.75\linewidth]{hyper-to-real}
+\caption{The agent chooses the best policy in the hyper-model, and then translates it back into the environment it is dealing with. In this case, it chose the red dashed action (perhaps $s_2$ has a higher value than $s_3$. In the real environment, the agent will choose the red action, hoping that it has a high probability of resulting in transition to $s_3$. If this hope is in error, the agent may try the action several times and eventually have enough evidence to effect a change in the posterior.}
+\label{sec:boss:hyper-to-real}
+\end{center}
+\end{figure}
+
+A hyper-model is the combination of some set of $K$ models with identical action and state spaces, but possibly differing dynamics (as in Figure~\ref{sec:boss:hyper-model-creation}). The resulting hyper-model has the same state space as each of its sub-models, but has one more feature in its action space. This feature, $k\in\{1,...,K\}$, indicates from which sub-model the dynamics of this action are taken. That is, the action $(2, a)$ has the same next-state and reward distributions that action $a$ has in model $2$.
+
+Intuitively, the agent is free to choose the dynamics from any of the sampled models during each step. An optimistic agent, one that thinks the best of the unknown, can choose the dynamics that give it the biggest advantage. This is an example of ``optimism in the face of uncertainty'', where the agent is drawn to parts of the state space that are either known to be good, or are not known. With this attack plan, the agent will either get good reward or get good knowledge. Since the amount of knowledge to be learned is usually finite, the agent will visit the unknown states enough to make them known, and be able to act without exploration in the future.
+
+\alg{BOSS}'s method of model creation allows the hyper-model to retain all the optimism of any of its sub-models. The idea is that, for each state, at least one of the $K$ models will predict dynamics at least as good as the true model's dynamics.
+
+To understand the claim that the hyper-model is, for every state, at least as optimistic as any of its sub-models, consider the set of sub-models whose dynamics differ for only one state-action pair $(s_0, a_0)$. Each sub-model $k$ has some value $Q_k(s_0,a_0)$ that results from applying the Bellman equation. In the hyper-model, this value is $Q(s_0,(k,a_0))$, where the action is the pairing of the sub-model and the original action. Since we know that, by definition, $V_k(s_0) = \max_a Q_k(s_0, a)$ and $V(s_0)=\max_{(k,a)} Q(s_0,(k,a))$, that $ \forall_k V(s_0)~\geq~V_k(s_0)$, since the max over several sets is at least as great as the max of any of those sets.
+
+\note{this might not make sense as stated, though the result is definitely true - rework}
+
+It is important to choose $K$ carefully. A low value for $K$ will increase the odds that, for some set of $K$ models, there will be states for which \emph{no} model's dynamics will be as good as the true model's --- this situation breaks any guarantees that \alg{BOSS} offers. A high value for $K$ can cause two problems. First, the amount of work done by the planner increases, sometimes dramatically; the runtime complexity of most discrete-action planning algorithms relies linearly or super-linearly on the number of actions. Second, too much optimism can be a bad thing. In the extreme, as $K \rightarrow \infty$, all possible models will be represented in every set of $K$ sub-models. In this situation, the agent's observations have no effect on the hyper-model, since the likelihood of each sampled model is not taken into account when compositing the sub-models together. With a finite, yet large, $K$, the number of observations required to have a particular state's dynamics be accurate in each of the sub-models grows as a polynomial of $K$. While this growth rate doesn't make a dent in any theoretical guarantees, it does present serious issues in practice.
+
+\subsubsection{Algorithm}
+
+The basic \alg{BOSS} algorithm is as follows:
+\begin{enumerate}
+\item Sample $K$ sub-models from the posterior. \label{boss:alg:gen:step1}
+\item Combine each of the $K$ models sampled into a hyper-model, as in Section~\ref{boss:alg:gen:hyper}.
+\item Using the planner, act optimally according to the hyper-model until a discovery event occurs. \label{boss:alg:gen:step3}
+\item Go back to Step~\ref{boss:alg:gen:step1}.
+\end{enumerate}
+
+This process is repeated forever, though eventually Step~\ref{boss:alg:gen:step3} will never complete, since the number of discovery events an agent can experience is bounded.
+
+Here, we define a \emph{discovery event} to be an action taken that causes a state to go from unknown to known. How this change is quantified varies with the model and prior being used. As an example, with a discrete state and action space, a state may become known once each action has been attempted from that state some pre-determined number of times. In a continuous state space, reaching some action density at a state could be defined to trigger a discovery event.
+
+A discovery event is a signal to the agent that the observations it has gathered have affected the posterior sufficently that the $K$ models it has been working with may now be out of date. A new hyper-model is created, from the new information, and the agent resumes its process of either getting high reward or making observations in states that are unknown (because they will have high reward in the hyper-model).
+
+The agent will get high reward because states that are \emph{known} to be good will be accurately represented in each of the $K$ samples, and the planner will be using an accurate version of those states' dynamics when it plans, no matter which version of the action it chooses to use.
+
+The agent will make observations in states that are \emph{unknown} because, for each unknown state, at least one of the $K$ sampled models will have dynamics that are optimistic for that state, making it more attractive to the agent than it would be otherwise.
+
+\subsection{BOSS for discrete state and action spaces}
+\label{boss:alg:disc}
+
+With a discrete state and action space, where the model can be represented by an MDP, the \alg{BOSS} algorithm can be defined more exactly, and given formal efficiency guarantees.
+
+\subsubsection{Knowness}
+
+For any prior that supports (has a non-zero probability for) the true model, there will be some minimum number of observed transitions from a particular state, with a particular action, that is large enough to guarantee (with high probability) a posterior sample that is close to the truth for that state-action pair. We will call this threshold $B$. We choose $B$ such that after $B$ next-states have been observed for a particular state-action pair, with high probability the true next-state distribution is close to the distribution inferred from the observation set. The threshold $B$ is a function of the desired accuracy and probability of success.
+
+A discovery event is then defined to occur on the $B^{\mbox{th}}$ transition from a particular state-action pair.
+
+\section{Proof of optimality}
+\label{boss:alg:disc:proof}
+
+In this section, I present a proof that \alg{BOSS} is PAC-BAMDP in discrete state and action spaces, as long as certain assumptions hold. That is, with probability $1-\delta$, the agent will choose $\epsilon$-Bayes optimal actions for all but a number of steps that is polynomial with the number of states $S$, the number of actions $A$, the prior's accuracy threshold $B$, $\epsilon$ and $\delta$.
+
+This proof's assumptions follow.
+\begin{enumerate}
+\item
+\label{boss:alg:disc:proof:cond:opt}
+Optimism: the values for each \emph{unknown} state-action pair in every hyper-model are \emph{locally optimistic}, as described in Section~\ref{boss:alg:disc:proof:opt}.
+\item
+\label{boss:alg:disc:proof:cond:acc}
+Accuracy: the hyper-models have accurate dynamics for any state-action pair that is \emph{known}.
+\item
+\label{boss:alg:disc:proof:cond:disc}
+Bounded discoveries: the agent will visit \emph{unknown} state-action pairs only a small number of times.
+\end{enumerate}
+
+These three assumptions are sufficient to ensure, with high probability, a polynomial number of sub-optimal steps in the BAMDP~\cite{lihong09abr2}.
+
+We define a state-action pair to be \emph{known} if it has been attempted at least $B$ times. This allows the agent to have gathered enough experience to be able to accurately simulate its dynamics, according to Assumption~\ref{boss:alg:disc:proof:cond:acc}. If the state-action pair has been attempted fewer than $B$ times, not enough observations have been made to make an accurate prediction, and it is considered \emph{unknown}.
+
+\subsection{Local optimism}
+\label{boss:alg:disc:proof:opt}
+This proof depends on a specific kind of optimism in posterior samples. A posterior sample is said to be a \emph{locally optimistic} sample for a particular state-action pair if, with the dynamics for all other state-action pairs set to match the true model, the sampled model's Q--value for that state-action pair exceeds its Q--value in the true model. Equivalently,
+\begin{eqnarray}
+\label{boss:alg:disc:proof:opt}\hat Q(s,a) &\geq& Q^*(s, a) - \epsilon_0\\
+R_m(s,a) +\gamma \sum_{s'} P_m(s'|s,a) V^*(s')&\geq&R(s,a) +\gamma \sum_{s'} P(s'|s,a) V^*(s') - \epsilon_0,
+\end{eqnarray}
+where $Q^*$ and $V^*$ are the true model's Q--value and Value functions, $P$ and $R$ are the true model's transition probability and reward functions, $P_m$ and $R_m$ are the sampled model's transition probability and reward functions, $\epsilon_0$ is the required accuracy bound, and $\hat Q$ is the resulting Q--value for a state using the sampled models dynamics for one step from the indicated state-action pair and the true model's dynamics afterwards.
+
+We will formalize Assumption~\ref{boss:alg:disc:proof:cond:opt} as follows:
+\begin{itemize}
+\item for any unknown state-action pair, an MDP sampled from the posterior is \emph{locally optimistic} with probability at least $1-\delta/(2 K S^2 A^2)$.
+\end{itemize}
+
+The result of applying a union bound across all $K$ samples and across all $S A$ state-ation pairs to this assumption is that, for a given set of $K$ posterior samples, with probability~$1-\delta_0/(S A)$, for each state-action pair, at least one of the $K$ samples is \emph{locally optimistic}.
+
+In Section~\ref{boss:alg:gen:hyper}, we saw how a hyper-model retains the optimism of each of its sub-models. If every state-action pair is locally optimistic in at least one of the $K$ sub-models, then the resulting hyper-model will be optimistic for all state-action pairs (as shown in Equation~\ref{boss:eqn:hyper-optimism}).
+
+\subsubsection{Hyper-model optimism lemma}
+\label{boss:alg:disc:proof:opt}
+
+\note{do one for $V(s) \geq V_k(s)$ too}
+
+For any given state-action pair, if a model sampled from the posterior is locally optimistic with probability at least $1-\delta/(2 K S^2 A^2)$, then a hyper-model created from the combination of $K$ models independently sampled from the posterior is optimistic for each state-action pair with probability at least $1-\delta/(2 S A)$ (this follows from the union bound). 
+
+\subsection{Bounded discoveries}
+
+Since a new hyper-model is constructed each time a discovery event occurs, it is important to bound the number of possible discovery events. In the discrete state and discrete action case, a discovery event occurs when a particular state-action pair is tried for the $B^{\mbox{th}}$ time. Since the number of unique state-action pairs is $S A$, there may only be $S A$ discovery events. As a result, the maximum number of hyper-models created over the agent's lifetime is $S A$.
+
+\subsubsection{Life-time hyper-model optimism lemma}
+
+If each constructed hyper-model is optimistic for all state-action pairs with probability at least $1-\delta/(2 S A)$, then all $S A$ hyper-models will be optimistic with probability $1-\delta/2$ (this follows from the union bound).
+
+\subsection{Local Accuracy}
+
+A posterior sample is said to be \emph{locally accurate} for a particular state-action pair if the sample's dynamics for that state-action pair are close to the true model's. Formally,
+$$\forall_{s'} ~ |P_m(s'|s,a)-P(s'|s,a)| \leq \epsilon_0.$$
+
+The \alg{BOSS} algorithm, by itself, cannot guarantee model accuracy; as a Bayesian algorithm, it is dependent on the prior chosen for the agent. We can formalize Assumption~\ref{boss:alg:disc:proof:cond:acc} as follows:
+\begin{itemize}
+\item for any known state-action pair, an MDP sampled from the posterior is \emph{locally accurate} at that state-action pair with probability at least $1-\delta/(2 K S^2 A^2)$.
+\end{itemize}
+
+
+\alg{BOSS} will sample $K$ models from the posterior whenever there is a discovery event. Since a given state-action pair can only be discovered once, that limits the total number of discovery events to $S A$, and therefore the total number of sampled models may not exceed $K S A$. For \alg{BOSS} to work correctly, every state-action pair must have accurate dynamics in every model sampled when the state-action pair is ``known'' --- this is an event with some likelihood (there is a chance that the sample is accurate for the state-action pair in question). An upper bound on the number of ``known'' state-action pairs in a particular sample, which need to all have accurate dynamics, is $S A$ (all possible pairs).
+
+Since there are $K S A$ samples, each of which must have at most $S A$ stochastic events come out favorably, there are at most $K S^2 A^2$ events that need to succeed. Lemma~\ref{boss:alg:disc:proof:acc} follows after applying the union bound.
+
+\subsubsection{Hyper-model accuracy lemma}
+\label{boss:alg:disc:proof:acc}
+If the likelihood for a known state-action pair to be \emph{locally accurate} in a posterior sample is at least $1-\delta/(2 K S^2 A^2)$, then the likelihood that all known state-action pairs have \emph{locally accurate} dynamics in all posterior samples is at least $1-\delta/2$.
+
+\subsection{Probability of success}
+
+Since Lemma~\ref{boss:alg:disc:proof:opt} holds with probability $1-\delta/2$ and Lemma~\ref{boss:alg:disc:proof:acc} holds with probability $1-\delta/2$, applying the union bound shows that they will both hold simultaneously with probability at least $1-\delta$.
+
+The three assumptions described at the beginning of Section~\ref{boss:alg:disc:proof} must hold true for \alg{BOSS} to act $\epsilon$-optimally for all but a polynomial number of steps with probability $1-\delta$. 
+
+%\note{Need to cite the simulation lemma, at least.  Locally accurate dynamics implies near optimal reward.  Oh, also the explore-expliot lemma---if you have a mix of accurate state-action pairs and optimistic state-action pairs, then you either obtain near optimal reward *or* encounter an unknown/optimistic state-action pair.}
+
+%\note{Needs some additional discussion.  What's the relationship between this theorem and the one in the paper?  The conditions you mention are actually assumptions.  Are they likely to be satisfied?  Can you provide examples where they are/aren't so that the reader will get a feel for what they mean?  Otherwise, the tone and content seem on target.}
+
+%
+\ifperchapterbib%
+For the convenience of the reader, a list of references is provided at the end of each chapter (where applicable).
+\ifendbib%
+%A bibliography containing all cited references is included at the \hyperref[sec:bibliography]{end of the dissertation}.
+\else\fi% end ifendbib
+%\cbend%
+\else\fi% end ifperchapterbib
