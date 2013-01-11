@@ -1,0 +1,9 @@
+extracted.pdf
+*~
+*.aux
+*.brf
+*.cb
+*.dvi
+*.log
+*.lot
+*conflicted*
