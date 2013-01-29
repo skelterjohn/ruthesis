@@ -70,15 +70,15 @@ All algorithms perform very well in the \prior{Tied} scenario (although
 \alg{RAM-RMAX} is a bit slower as it needs to estimate the slip probability
 very accurately to avoid finding a suboptimal policy).
 Poupart~et~al.~(2006) point out that \alg{BEETLE} (a belief-lookahead
-approach) is more effective than \alg{exploit} (an undirected approach) in
+approach) \note{pp:It is not a belief lookahead technique.  It simply performs approximate dynamic programming.} is more effective than \alg{exploit} (an undirected approach) in
 the \prior{Semi} scenario, which requires more careful exploration to perform
 well.  In \prior{Full}, however, \alg{BEETLE} falls behind because the larger
 parameter space makes it difficult for it to complete its
-belief-lookahead analysis.
+belief-lookahead analysis. \note{pp: No the reason is that the value function is difficult to approximate in high dimensional spaces.}
 
 \alg{BOSS}, on the other hand, explores as effectively as \alg{BEETLE} in \prior{Semi},
 but is also effective in \prior{Full}.  A similarly positive result (3158) in \prior{Full} is
-obtained by \alg{Bayesian DP}~\cite{strens00}.
+obtained by \alg{Bayesian DP}~\cite{strens00}. \note{pp: Can you include the results in the table.}
 
 \subsubsection{BAYESIAN MODELING OF STATE CLUSTERS}
 \label{s:cluster}
@@ -162,7 +162,7 @@ statistically significant (t-test $p<0.001$).
 \end{figure}
 
 
-\subsection{\env{Marble Maze}}
+\subsection{Marble Maze}
 
 
 To demonstrate the exploration behavior of our algorithm, we developed a
@@ -241,10 +241,10 @@ as it was not necessary to visit them often to
 obtain high reward in this grid.  The sampled models used around
 10~clusters to capture the dynamics.
 
-\subsection{\env{Puddle World}~\cite{boyan94b}}
+\subsection{Puddle World}
 \label{puddle}
 
-\env{Puddle World} is an RL benchmark in which an agent attempts to navigate two-dimensional space using four actions equivalent to \emph{north}, \emph{east}, \emph{south} and \emph{west}. The outcome dynamics are consistent across the entire domain, but the reward associated with each step can vary; in the center of the environment is a large ``puddle'', and if the agent ventures into the puddle it receives very poor reward. It is an action-penalty domain where the agent's goal is to reach a terminal state in one corner. This domain has deterministic outcomes with small additive noise.
+\env{Puddle World}~\cite{boyan94b} is an RL benchmark in which an agent attempts to navigate two-dimensional space using four actions equivalent to \emph{north}, \emph{east}, \emph{south} and \emph{west}. The outcome dynamics are consistent across the entire domain, but the reward associated with each step can vary; in the center of the environment is a large ``puddle'', and if the agent ventures into the puddle it receives very poor reward. It is an action-penalty domain where the agent's goal is to reach a terminal state in one corner. This domain has deterministic outcomes with small additive noise.
 
 \prior{ROAR}/\alg{BOSS} is compared against \alg{Fitted-RMAX} in Figure \ref{fig:puddle}.
 
@@ -259,7 +259,7 @@ obtain high reward in this grid.  The sampled models used around
 \end{figure} 
 
 
-\subsection{\env{Bridge of Fire}}
+\subsection{Bridge of Fire}
 \label{fire}
 
 The previous sectionÊdescribed a model that is characterized as ``deterministic with small noise''. In the \env{Bridge of Fire} domain, this assumption is violated by making the noise associated with each action determine the action's effectiveness.

@@ -4,7 +4,7 @@ This algorithm follows a strong tradition in model-based reinforcement learners 
 
 \section{Algorithm}
 
-The \alg{BOSS} algorithm, outlined in Figure~\ref{boss:fig:boss-general}, makes use repeated samples from a posterior to create a hyper-model that can be used for trading off exploration and exploitation.
+The \alg{BOSS} algorithm, outlined in Figure~\ref{boss:fig:boss-general}, makes use of repeated samples from a posterior to create a hyper-model that can be used for trading off exploration and exploitation.
 
 
 \begin{figure}[t]
@@ -41,7 +41,7 @@ The posterior sampling black box must have the ability to sample from the set of
 
 As the agent explores the world, taking actions and receiving feedback, it feeds the observations it has received to the posterior sampler. As the posterior sampler gets more and more data, the models sampled from it become more and more accurate, at least where the concentration of samples is high enough.
 
-A posterior sampler can only be useful if some sort of accuracy guarantee is possible. That is, as more observations are made, models sampled from the posterior become closer to the truth, at least in the parts of the model associated with the observations. It is not always the case that a posterior will become more accurate with more data. A simple example is a prior that says that a coin will either always turn up heads or always turn up tails. The moment that both a head and tail have been observed, samples from the posterior become inaccurate since they still insist on a deterministic outcome even when it has been shown to be a stochastic environment.
+A posterior sampler can only be useful if some sort of accuracy guarantee is possible. That is, as more observations are made, models sampled from the posterior become closer to the truth, at least in the parts of the model associated with the observations. It is not always the case that a posterior will become more accurate with more data. A simple example is a prior that says that a coin will either always turn up heads or always turn up tails. The moment that both a head and tail have been observed, samples from the posterior become inaccurate since they still insist on a deterministic outcome even when it has been shown to be a stochastic environment. \note{pp: Actually, the problem is even more serious than that.  After a head, the posterior says that tail is impossible.  So once tail is observed, Bayes rule fails because it needs to divide to divide by the probability of tail, which is 0.}
 
 For the general case, I will not specify exact accuracy guarantees. For the special case in Section~\ref{boss:alg:disc} there is a concrete assumption that must be met to guarantee efficiency.
 
@@ -75,7 +75,7 @@ Although the planner is decoupled from \alg{BOSS}'s operation, it is tied closel
 \end{center}
 \end{figure}
 
-A hyper-model is the combination of some set of $K$ models with identical action and state spaces, but possibly differing dynamics (as in Figure~\ref{sec:boss:hyper-model-creation}). The resulting hyper-model has the same state space as each of its sub-models, but has one more feature in its action space. This feature, $k\in\{1,...,K\}$, indicates from which sub-model the dynamics of this action are taken. That is, the action $(2, a)$ has the same next-state and reward distributions that action $a$ has in model $2$.
+A hyper-model is the combination of some set of $K$ models with identical action and state spaces, but possibly differing dynamics (as in Figure~\ref{sec:boss:hyper-model-creation}). The resulting hyper-model \note{pp: How is the hyper-model constructed?  Be more precise.  Perhaps provide pseudocode.} has the same state space as each of its sub-models, but has one more feature in its action space. This feature, $k\in\{1,...,K\}$, indicates from which sub-model the dynamics of this action are taken. That is, the action $(2, a)$ has the same next-state and reward distributions that action $a$ has in model $2$.
 
 Intuitively, the agent is free to choose the dynamics from any of the sampled models during each step. An optimistic agent, one that thinks the best of the unknown, can choose the dynamics that give it the biggest advantage. This is an example of ``optimism in the face of uncertainty'', where the agent is drawn to parts of the state space that are either known to be good, or are not known. With this attack plan, the agent will either get good reward or get good knowledge. Since the amount of knowledge to be learned is usually finite, the agent will visit the unknown states enough to make them known, and be able to act without exploration in the future.
 
@@ -192,9 +192,11 @@ Since there are $K S A$ samples, each of which must have at most $S A$ stochasti
 \label{boss:alg:disc:proof:acc}
 If the likelihood for a known state-action pair to be \emph{locally accurate} in a posterior sample is at least $1-\delta/(2 K S^2 A^2)$, then the likelihood that all known state-action pairs have \emph{locally accurate} dynamics in all posterior samples is at least $1-\delta/2$.
 
+\note{pp: Format this as a lemma in latex.}
+
 \subsection{Probability of success}
 
-Since Lemma~\ref{boss:alg:disc:proof:opt} holds with probability $1-\delta/2$ and Lemma~\ref{boss:alg:disc:proof:acc} holds with probability $1-\delta/2$, applying the union bound shows that they will both hold simultaneously with probability at least $1-\delta$.
+Since Lemma~\ref{boss:alg:disc:proof:opt} holds with probability $1-\delta/2$ \note{pp: No, it's the *statement* in the lemma that holds with probability 1-delta/2.} and Lemma~\ref{boss:alg:disc:proof:acc} holds with probability $1-\delta/2$, applying the union bound shows that they will both hold simultaneously with probability at least $1-\delta$.
 
 The three assumptions described at the beginning of Section~\ref{boss:alg:disc:proof} must hold true for \alg{BOSS} to act $\epsilon$-optimally for all but a polynomial number of steps with probability $1-\delta$. 
 

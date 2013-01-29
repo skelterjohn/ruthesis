@@ -1,29 +1,26 @@
 \label{chap:bfs3}
 
-
-\section{Introduction}
-
-In this chapter we discuss Bayesian Forward Search Sparse Sampling, or {\bf BFS3}.
+\alg{Bayesian Forward Search Sparse Sampling}, or \alg{BFS3}, is a method for applying a special kind of tree-search to a BAMDP. This application results in a policy with provably efficient sample complexity.
 
 \section{Building blocks}
 
-{\bf BFS3} is built upon the ideas from a few existing algorithms.
+\alg{BFS3} is built upon the ideas from a few existing algorithms.
 
 \subsection{Sparse Sampling}
 
-{\bf Sparse Sampling}~\cite{kearns99b} works by recursively expanding a full search tree up to a certain depth $d$. At the root, each of the $A$ actions is chosen a constant number of times $C$, yielding a set of $A\cdot C$ children. Sparse sampling is then run on each of the children with a recursion depth one less than the root's. Once the tree is fully created, the leaves are each assigned a value of zero. Then, starting at the leaves, the values are backed up and combined via the Bellman equation, giving the parents' values, until the root's value is determined. The total number of nodes in this search tree is $(AC)^d$, making the algorithm impractical to run in all but the most trivial of domains.
+\alg{Sparse Sampling}~\cite{kearns99b} works by recursively expanding a full search tree up to a certain depth $d$. At the root, each of the $A$ actions is chosen a constant number of times $C$, yielding a set of $A\cdot C$ children. Sparse sampling is then run on each of the children with a recursion depth one less than the root's. Once the tree is fully created, the leaves are each assigned a value of zero. Then, starting at the leaves, the values are backed up and combined via the Bellman equation, giving the parents' values, until the root's value is determined. The total number of nodes visited in this search tree is $(AC)^d$, making the algorithm impractical to run in all but the most trivial of domains.
 
-It is worth noting, however, that {\bf Sparse Sampling} is best known as one of the first RL planning algorithms that can achieve high accuracy with high probability using an amount of computation that is not a function of the size of the state space\footnote{Assuming sampling from the model in constant time}. Because of this attractive property, it makes sense to select it or one of its variants as the planner for the infinitely large BAMDP.  {\bf Sparse Sampling} is the basis for a number of Monte-Carlo Tree Search (MCTS) algorithms, which are considerably faster in practice \cite{kocsis06,walsh10,wang05}.
+It is worth noting, however, that \alg{Sparse Sampling} is best known as one of the first reinforcement-learning planning algorithms that can achieve high accuracy with high probability using an amount of computation that is not a function of the size of the state space\footnote{This lack of dependence on the number of states assumes that sampling from the model can be done in constant time. In most real situations there is at least a logarithmic dependency on the number of states just for representing any given state.}. Because of this attractive property, it makes sense to select it or one of its variants as the planner for the infinitely large BAMDP.  \alg{Sparse Sampling} is the basis for a number of Monte-Carlo Tree Search (MCTS) algorithms, which are considerably faster in practice \cite{kocsis06,walsh10,wang05}.
 
-{\bf Spare Sampling} is discussed in more detail in Chapter~\ref{sec:relmbbrl}.
+\alg{Sparse Sampling} is discussed in more detail in Chapter~\ref{sec:relmbbrl}.
 
 \subsection{Forward Search Sparse Sampling}
 
-{\bf Forward Search Sparse Sampling}, or {\bf FSSS}, is a Monte-carlo tree search algorithm used for planning in MDPs. It is the approach we adopt in this paper.  It preferentially expands the search tree through the use of rollouts, and is outlined in Algorithm~\ref{alg:fs3}. Unlike either {\bf Bayesian Sparse Sampling} or {\bf UCT}, it retains the attractive guarantees of the original {\bf Sparse Sampling} algorithm. {\bf FSSS} maintains hard upper and lower bounds on the values for each state and action so as to direct the rollouts; actions are chosen greedily according to the upper bound on the value, and the next state is chosen such that it is the most uncertain of the available candidates (according to the difference in its upper and lower bounds).
+\alg{Forward Search Sparse Sampling}, or \alg{FSSS}, is a Monte-carlo tree search algorithm used for planning in MDPs. \alg{BFS3}, introduced in Section~\ref{sec:bfs3:bfs3} of this Chapter, uses \alg{FSSS} as a subroutine.  It preferentially expands the search tree through the use of rollouts, and is outlined in Algorithm~\ref{alg:fs3}. Unlike either \alg{Bayesian Sparse Sampling}~\cite{wang05} or \alg{UCT}~\cite{kocsis06}, it retains the attractive guarantees of the original \alg{Sparse Sampling} algorithm. An important property of \alg{FSSS} is that it maintains hard upper and lower bounds \note{pp: What do you mean by *hard* bounds? I thought the bounds only hold with some probability.} on the values for each state and action, and uses those bounds to direct the rollouts; actions are chosen greedily according to the upper bound on the value, and the next state is chosen such that it is the most uncertain of the available candidates (according to the difference in its upper and lower bounds).
 
-{\bf FSSS} will find the action to take from a given state $s_0$, which will be the root of the search tree.  The tree is expanded by running $t$ trajectories, or rollouts, of length $d$. There are theoretically justified ways to choose $t$ and $d$, but in practical applications they are knobs used to balance computational overhead and accuracy. To run a single rollout, the agent will call Algorithm~\ref{alg:fs3-rollout}, $\mbox{FSSS-Rollout}(s_0, d, 0, M)$.
+\note{pp: This is a repeat of some text earlier.} \alg{FSSS} will find the action to take from a given state $s_0$, which will be the root of its search tree.  The tree is expanded by running $t$ trajectories, or rollouts, of length $d$. There are theoretically justified ways to choose $t$ and $d$, but in practical applications they are knobs used to balance computational overhead and accuracy. To run a single rollout, the agent will invoke Algorithm~\ref{alg:fs3-rollout}, $\mbox{FSSS-Rollout}(s_0, d, 0, M)$.
 %, $T$ times. 
-The values $U_d(s)$ and $L_d(s)$ are the upper and lower bounds on the value of the node for state $s$ at depth $d$, respectively. Each time a rollout is performed, the tree will be expanded. After at most $(AC)^d$ rollouts are finished (but often less in practice), {\bf FSSS} will have expanded the tree as much as is possibly useful, and will agree with the action chosen by {\bf Sparse Sampling}.
+The values $U_d(s)$ and $L_d(s)$ are the upper and lower bounds on the value of the node for state $s$ at depth $d$, respectively. Each time a rollout is performed, the tree will be expanded. After at most $(AC)^d$ rollouts are finished (but often less in practice), \alg{ FSSS} will have expanded the tree as much as is possibly useful, and will agree with the action chosen by \alg{Sparse Sampling}.
 
 \begin{algorithm}[tb]
 	\caption{$\mbox{FSSS}(s, d, t, M)$}
@@ -75,6 +72,7 @@ The values $U_d(s)$ and $L_d(s)$ are the upper and lower bounds on the value of 
 
 \section{Bayesian Forward Search Sparse Sampling}
 
+\label{sec:bfs3:bfs3}
 
 \begin{algorithm}[tb]
 	\caption{$\mbox{BFS3}(s, h, d, t, \phi)$}
@@ -96,31 +94,33 @@ The values $U_d(s)$ and $L_d(s)$ are the upper and lower bounds on the value of 
 \end{algorithm}
 
 
-{\bf BFS3} is the application of {\bf FSSS} to a Bayes-adaptive MDP, or BAMDP, and is outlined in Algorithm~\ref{alg:bfs3}. The BAMDP is defined by the MDP prior~$\phi(M)$, and the joint transition and reward function ${T\mbox{-}R}_\phi$ is constructed such that
+\alg{BFS3} is the application of \alg{FSSS} to a Bayes-adaptive MDP, or BAMDP, and is outlined in Algorithm~\ref{alg:bfs3}. The BAMDP is defined by the MDP prior~$\phi(M)$, and the joint transition and reward function ${T\mbox{-}R}_\phi$ is constructed such that
 \begin{eqnarray*}
 P(\langle s', h\cup (s,a,s',r)\rangle, r | \langle s, h\rangle, a) &=& \int_M P(s', r | s, a, M)\phi(M|h) dM.
 \end{eqnarray*}
 
 Here, the BAMDP's state-space is the set of belief-states that include the history of all transitions seen so far. Because of how the BAMDP's transition function is constructed, the set of next-states that an agent can transition to always have a history that includes that transition.
 
-Since, with {\bf FSSS}, the next belief-states are only sampled and their likelihoods are never calculated, a simple generative process can be used:
+BAMDPs, their construction, and their relation to Bayes-optimality are discussed in detail in Chapter~\ref{sec:intro}.
+
+Since, with \alg{FSSS}, the next belief-states are only sampled and their likelihoods are never calculated, a simple generative process can be used:
 \begin{eqnarray}
 M &\sim& \phi|h \label{eq:oracle1}\\
 s', r &\sim& T_M(s,a), R_M(s,a).\label{eq:oracle2}
 \end{eqnarray}
 
-This process is used whenever {\bf BFS3} or its subroutine {\bf FSSS} sample a next-state and reward. The algorithm never holds on to an individual MDP after a single transition has been sampled from it. Also, note that whenever {\bf FSSS} does a Bellman backup, that backup is done for a belief-state (since {\bf FSSS} is acting on the BAMDP).
+This process is used whenever \alg{BFS3} or its subroutine \alg{FSSS} sample a next-state and reward. The algorithm never holds on to an individual MDP after a single transition has been sampled from it. Also, note that whenever \alg{FSSS} does a Bellman backup, that backup is done for a belief-state (since \alg{FSSS} is acting on the BAMDP).
 
-First, an MDP $M$ is sampled from the posterior $\phi|h$. Sometimes this can be a computationally expensive action, since inference is generally a hard probelm. The {\bf BFS3} algorithm can only work effectively if this step is fast. Once it is sampled, then the next state and reward are sampled from $M$.
+First, an MDP $M$ is sampled from the posterior $\phi|h$. Sometimes this can be a computationally expensive action, since inference is generally a hard probelm. The \alg{BFS3} algorithm can only work effectively if this step is fast. Once it is sampled, then the next state and reward are sampled from $M$.
 
 To reconstruct the resulting belief-state, we pack the resulting concrete state $s'$ with the new history made by augmenting $h$ with $(s, a, s', r)$, resulting in a transition from belief-state $\langle s, h\rangle$ to $\langle s', h\cup (s,a,s',r)\rangle$.
 
-Figure~\ref{fig:bfs3} illustrates the {\bf BFS3}'s process for each belief-state visited by the agent. In the future, the agent may find itself in one of the reachable belief-states in the search tree.
+Figure~\ref{fig:bfs3} illustrates the \alg{BFS3}'s process for each belief-state visited by the agent. In the future, the agent may find itself in one of the reachable belief-states in the search tree.
 %shows how an agent can step through the search tree while making observations. The grayed trail represents the agent's history. The history for any particular node is the path from the root to that node.
 
-In many cases, the history $h$ can be summarized by a more compact sufficient statistic, and next-state posteriors can be sampled efficiently (for example, the {\bf FDM} prior detailed in Section~\ref{sec:models}).
+In many cases, the history $h$ can be summarized by a more compact sufficient statistic, and next-state posteriors can be sampled efficiently (for example, the \prior{FDM} prior detailed in Chapter~\ref{sec:models}).
 
-The sufficient statistic for {\bf FDM} (and for any discrete state and discrete action MDP) is the set of histograms indicating how many times each state $s'$ has resulted from a particular state-action pair. Due to conjugacy, next-states can be sampled using {\bf FDM} without sampling an intermediate MDP. The next-state distribution is a multinomial with weights proportional to the corresponding histogram added to the prior vector $\alpha$.
+The sufficient statistic for \prior{FDM} (and for any discrete state and discrete action MDP) is the set of histograms indicating how many times each state $s'$ has resulted from a particular state-action pair. Due to conjugacy, next-states can be sampled using \prior{FDM} without sampling an intermediate MDP. The next-state distribution is a multinomial with weights proportional to the corresponding histogram added to the prior vector $\alpha$.
 
 \begin{figure}
 \vskip 0.2in
@@ -128,7 +128,7 @@ The sufficient statistic for {\bf FDM} (and for any discrete state and discrete 
 \centerline{\includegraphics[scale=0.5]{bfs3}}
 \caption{
 %{\bf Left:} the search tree when the agent is at state $s_0$ with no further observations. {\bf Right:} the agent has taken a single step in the world by performing action $a_1$, resulting in a transition to state $s_2$. White nodes indicate hypotheticals that may or may not happen. Grayed nodes indicate things that have been observed. Blackened nodes indicate data that is no longer pertinent and can be thrown out.
-{\bf BFS3} samples next-belief-states for each action $C$ times, and then runs {\bf FSSS} on the resulting belief state, using the BAMDP as a generative model. Every node the same distance from the root represents one of the possible worlds that the agent may experience, each with a different history and MDP posterior.
+\alg{BFS3} samples next-belief-states for each action $C$ times, and then runs \alg{FSSS} on the resulting belief state, using the BAMDP as a generative model. Every node the same distance from the root represents one of the possible worlds that the agent may experience, each with a different history and MDP posterior.
 }
 \label{fig:bfs3}
 \end{center}
@@ -137,12 +137,17 @@ The sufficient statistic for {\bf FDM} (and for any discrete state and discrete 
 
 \subsubsection{Theorem statement}
 
-If: \begin{inparaenum} \item \label{theorem:cond-fsss} {\bf FSSS}, given the true MDP $m_0$ and some bound on computational resources, can provide accurate value estimates with high probability, and \item \label{theorem:cond-acc} the posterior next-state distribution for some state-action pair, given $N$ examples, will be an accurate estimate of $m_0$'s next-state distribution with high probability\end{inparaenum}, then: with high probability, {\bf BFS3} will behave Bayes-optimally for all but a polynomial number of steps.
+If:
+\begin{enumerate}
+\item \label{theorem:cond-fsss} \alg{FSSS}, given the true MDP $m_0$ and some bound on computational resources, can provide accurate value estimates with high probability, and 
+\item \label{theorem:cond-acc} the posterior next-state distribution for some state-action pair, given $N$ examples, will be an accurate estimate of $m_0$'s next-state distribution with high probability,
+\end{enumerate}
+then: with high probability, \alg{BFS3} will behave Bayes-optimally for all but a polynomial number of steps.
 
 \subsection{Proof sketch}
 
 
-First, we will show that there is a BAMDP, constructed from the prior $\phi$, whose optimal policy is the Bayes-optimal policy for $m_0\sim \phi$. Then, we will show that {\bf BFS3}, acting in the BAMDP, will satisfy the three criteria required for PAC-MDP behavior~\cite{kakade03,lihong09abr2} in that BAMDP\footnote{PAC-MDP behavior in the BAMDP implies near Bayes-optimal behavior in the learning setting.}.
+First, we will show that there is a BAMDP, constructed from the prior $\phi$, whose optimal policy is the Bayes-optimal policy for $m_0\sim \phi$. Then, we will show that \alg{BFS3}, acting in the BAMDP, will satisfy the three criteria required for PAC-MDP behavior~\cite{kakade03,lihong09abr2} in that BAMDP\footnote{PAC-MDP behavior in the BAMDP implies near Bayes-optimal behavior in the learning setting.}.
 These criteria are: \begin{inparaenum} \item accuracy, \item bounded discoveries, and \item optimism. \end{inparaenum}
 
 First, because of Condition~\ref{theorem:cond-acc} in our theorem statement, we know that once we have received $N$ examples of transitions from a state-action pair $(s,a)$, our estimate of the next-state distribution for that pair will be accurate.  (This condition need not hold for degenerate priors, but it appears to hold quite broadly.)
@@ -151,7 +156,7 @@ Second, since we forget all additional transitions from state-action pairs for w
 
 A discovery event, or one that potentially changes the MDP posterior, is an event that results in a change to the history. There are $N \cdot S \cdot A$ discoveries possible, since other transitions will be forgotten.
 
-Third, $\mathbf{FSSS}(s',d,t,M_\phi)$ is guaranteed to have an optimistic value estimate for belief-state $s'$ as $t$ (the number of trajectories), our bounded resource, grows smaller. We also know that, from Condition~\ref{theorem:cond-fsss} of the theorem, $t$ is sufficient to find accurate estimates of $s'$ if all states in $s'$'s subtree have converged next-state posteriors. Simply put, if $s'$'s subtree has no unknown state-action pairs, then {\bf FSSS}'s estimate of that state's value will be accurate.  As a result, if {\bf FSSS}'s estimate of a state's value is inaccurate, there must be something to learn about in $s'$'s subtree. {\bf FSSS} guarantees that this inaccuracy will be optimistic.
+Third, $\mathbf{FSSS}(s',d,t,M_\phi)$ is guaranteed to have an optimistic value estimate for belief-state $s'$ as $t$ (the number of trajectories), our bounded resource, grows smaller. We also know that, from Condition~\ref{theorem:cond-fsss} of the theorem, $t$ is sufficient to find accurate estimates of $s'$ if all states in $s'$'s subtree have converged next-state posteriors. Simply put, if $s'$'s subtree has no unknown state-action pairs, then \alg{FSSS}'s estimate of that state's value will be accurate.  As a result, if \alg{FSSS}'s estimate of a state's value is inaccurate, there must be something to learn about in $s'$'s subtree. \alg{FSSS} guarantees that this inaccuracy will be optimistic.
 
 Also possible is that the value estimate of $s'$ is accurate \emph{and} there are unknown states in its subtree. In this case, the agent can decide whether or not to visit that state fully informed of its value, and can take a Bayes-optimal action.
 
@@ -160,7 +165,7 @@ The PAC-MDP criteria direct the agent to areas of either high value or high unce
 \section{Proof}
 
 
-This section presents the detailed argument that {\bf BFS3} is near
+This section presents the detailed argument that \alg{BFS3} is near
 Bayes-optimal.
 
 \subsection{Terms}
@@ -172,13 +177,13 @@ Bayes-optimal.
 \item $P_m(s'|s,a)$ is the probability of going from $s$ to $s'$ when performing action $a$ in some MDP~$m$.
 \item $P_{\phi|h}(s'|s,a)=\int_m \phi(m|h)P_m(s'|s,a) dm$ is the posterior transition likelihood, integrating out all possible MDPs.
 \item $V_m(s)$ is the true value of state $s$ according to MDP $m$.
-\item $\mbox{\bf FSSS}_m(s, B)$ is the value of state $s$ estimated by {\bf FSSS} when using $s$ as a root, $m$ as an oracle (that samples next-states given a state-action pair), and with computational resource bounds represented by $B$. In this context, $B$ is the number of trajectories and the search depth that {\bf FSSS} uses to perform roll-outs.
+\item $\mbox{FSSS}_m(s, B)$ is the value of state $s$ estimated by \alg{ FSSS} when using $s$ as a root, $m$ as an oracle (that samples next-states given a state-action pair), and with computational resource bounds represented by $B$. In this context, $B$ is the number of trajectories and the search depth that \alg{FSSS} uses to perform roll-outs.
 \end{itemize}
 
 \subsection{Prerequisites}
 \begin{enumerate}
-\item \label{fsss-acc} The {\bf planning assumption}: For any $s$, w.p.\ $1-\delta_p$, $|\mbox{\bf FSSS}_{m_0}(s, B)-V_{m_0}(s)| \leq \epsilon_p$.\\
-In other words, {\bf FSSS} will estimate values accurately if it is given the true model and at least $B$ computation time. 
+\item \label{fsss-acc} The {\bf planning assumption}: For any $s$, w.p.\ $1-\delta_p$, $|\mbox{FSSS}_{m_0}(s, B)-V_{m_0}(s)| \leq \epsilon_p$.\\
+In other words, \alg{FSSS} will estimate values accurately if it is given the true model and at least $B$ computation time. 
 \item \label{sa-bound} The {\bf accuracy assumption}: For some state-action pair $(s,a)$, if $h$ includes $N$ samples from $P_{m_0}(s'|s,a)$, then w.p.\ $1-\delta_c/(S A)$,
 $$\forall_{s'}~|P_{\phi|h}(s'|s,a) - P_{m_0}(s'|s,a)| \leq \alpha_c.$$
 As a result, if $N$ examples of each of the $S\cdot A$ state-action pairs are observed, w.p.\ $1-\delta_c$, all transition probability deviations are bounded by $\alpha_c$.
@@ -193,7 +198,7 @@ Note: this condition removes the need to say $m_0 \sim \phi$. All of our closene
 \subsection{MCTS simulation conjecture}
 \label{mcts-conj}
 
-Let an MCTS algorithm $\mathcal{A}_m(s,B)$ be an estimator of the value of state $s$ in MDP $m$, bounded by computational resources $B$, whose sole source of stochasticity comes from using $m$ as a generator of $s'\sim s,a|m$. {\bf FSSS} and {\bf UCT}~\cite{kocsis06} both fall into this category; their resources are the number of roll-outs and maximum search depth.
+Let an MCTS algorithm $\mathcal{A}_m(s,B)$ be an estimator of the value of state $s$ in MDP $m$, bounded by computational resources $B$, whose sole source of stochasticity comes from using $m$ as a generator of $s'\sim s,a|m$. \alg{FSSS} and \alg{UCT}~\cite{kocsis06} both fall into this category; their resources are the number of roll-outs and maximum search depth.
 
 Intuitively, we conjecture that if $\mathcal{A}$ can reliably find accurate values for states in one MDP, then it can also reliably find accurate values for the MDP when using an approximate second MDP as its next-state generator.
 
@@ -209,7 +214,7 @@ then
 where $1/\delta_{p'}=\mbox{poly}(1/(1-\alpha_c),1/\delta_p,1/\epsilon_p,m_a,B)$ and $\epsilon_{p'}=\mbox{poly}(1/(1-\alpha_c),1/\delta_p,1/\epsilon_p,m_a,B)$.
 
 \subsubsection{Note on $C \cdot A$}
-The probability $1-\delta_{p}/(CA)$ is used because, for each step, {\bf BFS3} will invoke {\bf FSSS} $C \cdot A$ times, or $C$ times for each action.  This choice was made to ensure that all next states get enough resources to ensure accuracy when their dynamics are known. We use the union bound to say, w.p.\ $1-\delta_p$, \emph{all} such next states have accurate estimates.
+The probability $1-\delta_{p}/(CA)$ is used because, for each step, \alg{BFS3} will invoke \alg{FSSS} $C \cdot A$ times, or $C$ times for each action.  This choice was made to ensure that all next states get enough resources to ensure accuracy when their dynamics are known. We use the union bound to say, w.p.\ $1-\delta_p$, \emph{all} such next states have accurate estimates.
 
 \subsection{PAC-MDP behavior in the BAMDP}
 
@@ -244,20 +249,20 @@ To understand these criteria and how they connect PAC-MDP behavior in the BAMDP 
 
 A \emph{state} $s$ is considered known if the history $h$ contains $N$ examples of transitions from $s$ for each action $a\in A$.
 
-A \emph{belief-state} $\langle s, h \rangle$ is considered known if {\bf FSSS}'s estimate of its value is accurate.
+A \emph{belief-state} $\langle s, h \rangle$ is considered known if \alg{FSSS}'s estimate of its value is accurate.
 
-Figure~\ref{fig:bfs3tree} illustrates how unknown states in a belief-state's {\bf FSSS} subtree may cause a belief-state's estimate to be inaccurate. Because of Prerequisite~\ref{fsss-acc}, the planning assumption, we know that if there are no unknown states in a belief-state's subtree, then the belief-state's estimate will be accurate, and we can consider the belief-state to be known.
+Figure~\ref{fig:bfs3tree} illustrates how unknown states in a belief-state's \alg{FSSS} subtree may cause a belief-state's estimate to be inaccurate. Because of Prerequisite~\ref{fsss-acc}, the planning assumption, we know that if there are no unknown states in a belief-state's subtree, then the belief-state's estimate will be accurate, and we can consider the belief-state to be known.
 
-It is possible for a belief-state to be known if there are unknown states in its subtree; in the limit of computation, {\bf FSSS} will be accurate for all belief-states. But, it is not possible for all states in the belief-state's subtree to be known if the belief-state is not known.
+It is possible for a belief-state to be known if there are unknown states in its subtree; in the limit of computation, \alg{FSSS} will be accurate for all belief-states. But, it is not possible for all states in the belief-state's subtree to be known if the belief-state is not known.
 
-As a result, an unknown belief-state indicates an unknown state that is at most $D$ steps away, where $D$ is the search depth given to {\bf FSSS}. Since unknown belief-states always have optimistic estimates when they are evaluated with {\bf FSSS}, the agent is pulled towards unknown states.
+As a result, an unknown belief-state indicates an unknown state that is at most $D$ steps away, where $D$ is the search depth given to \alg{FSSS}. Since unknown belief-states always have optimistic estimates when they are evaluated with \alg{FSSS}, the agent is pulled towards unknown states.
 
 \begin{figure}
 \vskip 0.2in
 \begin{center}
 \centerline{\includegraphics[scale=0.5]{bfs3tree}}
 \caption{
-{\bf BFS3} will run {\bf FSSS} on each of the $C\cdot A$ next belief-states, $\langle s', h' \rangle$ and its peers. Triangles below belief-states represent search trees explored by {\bf FSSS}. A greyed search tree indicates that some of the true states visited in that search tree are unknown, and the value estimate may be inaccurate. Because we are using {\bf FSSS}, an inaccurate estimate is guaranteed to be optimistic, and can bubble up to the root.
+\alg{BFS3} will run \alg{FSSS} on each of the $C\cdot A$ next belief-states, $\langle s', h' \rangle$ and its peers. Triangles below belief-states represent search trees explored by \alg{FSSS}. A greyed search tree indicates that some of the true states visited in that search tree are unknown, and the value estimate may be inaccurate. Because we are using \alg{FSSS}, an inaccurate estimate is guaranteed to be optimistic, and can bubble up to the root.
 }
 \label{fig:bfs3tree}
 \end{center}
@@ -266,7 +271,7 @@ As a result, an unknown belief-state indicates an unknown state that is at most 
 
 \subsubsection{Satisfying the PAC-MDP criteria}
 
-{\bf BFS3} is PAC-MDP for the belief-state MDP because it satisfies the 3 criteria.
+\alg{BFS3} is PAC-MDP for the belief-state MDP because it satisfies the 3 criteria.
 
 Condition~\ref{pacmdp-disc} holds because if the agent reaches an unknown belief state (one with an inaccurate, optimistic value), it must be because there is an unknown state-action pair beneath it in the tree \emph{and} this node will be reached by the current policy with high probability.  (Quantifying this claim involves an argument that closely parallels the ``explore or exploit'' lemma from PAC-MDP theory.)  Note that when an unknown state-action pair is reached, it moves closer to being known.  In fact, an agent can only do this update $S\cdot A \cdot N$ times, so, the number of discoveries is bounded.
 
@@ -274,13 +279,13 @@ Condition~\ref{pacmdp-disc} holds because if the agent reaches an unknown belief
 
 Condition~\ref{pacmdp-acc} holds because of Prerequisite~\ref{sa-bound} (the accuracy assumption). Once we have $N$ examples of a state-action pair, we have an accurate estimate of the next-state distribution for that pair. Once we have $N$ examples of all state-action pairs, we have an accurate estimate of the entire MDP.
 
-%Condition~\ref{pacmdp-opt} holds because of the nature of {\bf FSSS}. We know that {\bf FSSS} will never be pessimistic about a state's value~\cite{walsh10}. We will allow any uncertainty in a belief-state's value (that is, it can possibly run into a state-action pair for which $N$ samples have \emph{not} been observed) to cause {\bf FSSS} to be inaccurate. And, if it is not accurate, {\bf FSSS} must be optimistic. In this sense, uncertainty will draw the agent towards unknown states.
+%Condition~\ref{pacmdp-opt} holds because of the nature of \alg{FSSS}. We know that \alg{FSSS} will never be pessimistic about a state's value~\cite{walsh10}. We will allow any uncertainty in a belief-state's value (that is, it can possibly run into a state-action pair for which $N$ samples have \emph{not} been observed) to cause \alg{FSSS} to be inaccurate. And, if it is not accurate, \alg{FSSS} must be optimistic. In this sense, uncertainty will draw the agent towards unknown states.
 
-Condition~\ref{pacmdp-opt} holds because of our definition of known and unknown belief-states and the behavior of {\bf FSSS}. Known belief-states have accurate values, and unknown belief-states have optimistic values. No belief-state ever has a pessimistic value.
+Condition~\ref{pacmdp-opt} holds because of our definition of known and unknown belief-states and the behavior of \alg{FSSS}. Known belief-states have accurate values, and unknown belief-states have optimistic values. No belief-state ever has a pessimistic value.
 
 \subsection{How accurate, and how likely?}
 
-We have shown that {\bf BFS3} is near Bayes-optimal, meaning with high probability, it will be accurate for all but a small number of steps. This section details how accurate {\bf BFS3} is and with what probability it achieves this accuracy.
+We have shown that \alg{BFS3} is near Bayes-optimal, meaning with high probability, it will be accurate for all but a small number of steps. This section details how accurate \alg{BFS3} is and with what probability it achieves this accuracy.
 
 \subsubsection{Bayes-optimal behavior for a converged posterior}
 \label{sec-conv}
@@ -289,11 +294,11 @@ We declare the posterior to be converged if, for each $s,a$, our history $h$ inc
 Let $m_0$ and $\phi|h$ take the place of $m_a$ and $m_b$ in the MCTS simulation conjecture.
 By Prerequisite~\ref{sa-bound}, we have Condition~\ref{mcts-bound} for the MCTS simulation conjecture. 
 By Prerequisite~\ref{fsss-acc}, we have Condition~\ref{mcts-good} for the MCTS simulation conjecture.
-For each step in the environment, {\bf BFS3} runs {\bf FSSS} $C$ times for each action, resulting in $C\cdot A$ executions of {\bf FSSS}. We can put a lower bound on the likelihood that they are all $\epsilon_{p'}$-accurate of $1-\delta_{p'}$.
+For each step in the environment, \alg{BFS3} runs \alg{FSSS} $C$ times for each action, resulting in $C\cdot A$ executions of \alg{FSSS}. We can put a lower bound on the likelihood that they are all $\epsilon_{p'}$-accurate of $1-\delta_{p'}$.
 
 The estimate for the value of taking action $a$ from the root state $s_0$ is calculated as
 \begin{equation}
-\hat Q(s_0, a) = R(s_0,a) + \gamma \frac 1 C \sum_{i=1}^C \mbox{\bf FSSS}_{\phi|h}(s_i, B).
+\hat Q(s_0, a) = R(s_0,a) + \gamma \frac 1 C \sum_{i=1}^C \mbox{FSSS}_{\phi|h}(s_i, B).
 \end{equation}
 
 Let the Monte~Carlo estimate of $Q(s_0,a)$, using the true value for all next states, be
@@ -340,11 +345,11 @@ Once the model has converged, every time the agent takes a step from some state 
 
 Since the agent will not update the history $h$ on a transition from $s,a$ when transitions $s,a$ have been observed $N$ times in the past, we know there are only $S \cdot A \cdot N$ different histories possible over the course of a single experiment.
 
-Given a particular history $h$ and state $s$ that has been experienced before, {\bf BFS3} will choose the same action as last time, limiting the total amount of computation possible, and also the total number of times {\bf BFS3} has to succeed is limited at $M = S^2 \cdot A \cdot N$, or the number of states times the number of possible histories.
+Given a particular history $h$ and state $s$ that has been experienced before, \alg{BFS3} will choose the same action as last time, limiting the total amount of computation possible, and also the total number of times \alg{BFS3} has to succeed is limited at $M = S^2 \cdot A \cdot N$, or the number of states times the number of possible histories.
 
-In Sections~\ref{sec:inf}~and~\ref{sec:fin}, we set conditions for {\bf BFS3} to choose either an exploratory action or an optimal action for each of these $M$ possible events.
+In Sections~\ref{sec:inf}~and~\ref{sec:fin}, we set conditions for \alg{BFS3} to choose either an exploratory action or an optimal action for each of these $M$ possible events.
 
-On a given step, {\bf BFS3} will run {\bf FSSS} on each of $A$ possible actions and, for each action, $C$ possible next-states.
+On a given step, \alg{BFS3} will run \alg{FSSS} on each of $A$ possible actions and, for each action, $C$ possible next-states.
 
 
 \subsubsection{In the limit of infinite computation}
@@ -362,7 +367,7 @@ $$\epsilon_f = \epsilon_{p'}+\lambda$$
 and
 $$\delta_f/M = \delta_{p'} + e^{-\lambda^2 C / {\Vmax^2}}.$$
 
-In cases with limited computation and when there are states in the subtree that are not converged, we are guaranteed to have an $\epsilon_f$-\emph{optimistic} estimate w.p.\ at least $1-\delta_f/M$. This is true because of the guarantees provided by {\bf FSSS}.
+In cases with limited computation and when there are states in the subtree that are not converged, we are guaranteed to have an $\epsilon_f$-\emph{optimistic} estimate w.p.\ at least $1-\delta_f/M$. This is true because of the guarantees provided by \alg{FSSS}.
 
 An action $a$'s estimate is $\epsilon$-optimistic if
 $$\hat Q(s, a) \geq Q^*(s, a) - \epsilon.$$

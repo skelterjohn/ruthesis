@@ -52,7 +52,7 @@ P(\theta|X,\alpha) &\propto& P(X|\theta,\alpha) P(\theta|\alpha),\\
 
 The $\alpha$ vector can encode what is learned from a set of prior observations. With a $\mbox{Dir}(\langle x, y, z \rangle)$ prior and an observation of the second element, the posterior is $\mbox{Dir}(\langle x, y+1, z \rangle)$. Moving forward with that posterior is equivalent to starting with the prior $\mbox{Dir}(\langle x, y+1, z \rangle)$ without the benefit of the observation. It follows that starting with a prior of $\mbox{Dir}(\langle 1+x, 1+y, 1+z \rangle)$ is the same as starting with a prior of $\mbox{Dir}(\langle 1, 1, 1 \rangle)$ and making $x$, $y$, and $z$ observations of the first, second, and third outcomes, respectively.
 
-It is possible to specify an \emph{improper} prior with the Dirichlet model. Leaving one of the $\alpha$ values as $0$ indicates that the agent should expect to never see that outcome in any future samples. The sampled mutlinomial will always have a weight of $0$ for that outcome.
+It is possible to specify an \emph{improper} prior with the Dirichlet model. Leaving one of the $\alpha$ values as $0$ indicates that the agent should expect to never see that outcome in any future samples. The sampled mutlinomial will always have a weight of $0$ for that outcome. \note{pp: You can't have an alpha value of 0.  This would lead to an improper distribution that does not integrate to 1 and shoots to infinity. The exponent alpha-1 would evaluate to -1, which means that there would be a division by 0.}
 
 The likelihood of any particular observation set, given the parameter $\alpha$, can be derived from the model
 \begin{eqnarray}
@@ -111,7 +111,7 @@ Similarly to the Dirichlet model's easy relation with discrete state and action 
 
 The simplest case is when the next-state is drawn directly from a Gaussian distribution. A more interesting case has an outcome drawn from a Gaussian distribution, and then the next-state is derived from applying the outcome to the previous state. The inference problem, where the agent learns the mean and variance of the Gaussian distribution in question, is the same either way. The only difference is what data the inference engine is given as examples.
 
-An easy version of this problem is the unknown mean, known variance prior\note{ref?}. Given some covariance $\Sigma$, and a mean prior of $N(\mu_\mu, \Sigma_\mu)$, we can concisely describe the model as follows:
+An easy version of this problem is the unknown mean, known variance prior\note{show this}. Given some covariance $\Sigma$, and a mean prior of $N(\mu_\mu, \Sigma_\mu)$, we can concisely describe the model as follows:
 \begin{eqnarray}
 \mu_a &\sim& N(\mu_\mu, \Sigma_\mu),\\
 o_t &\sim& N(\mu_{a_t}, \Sigma),\\
@@ -120,7 +120,7 @@ s_{t+1} &=& f(s_t, o_t).
 
 Here, $\mu_\mu$ is the prior mean for the latent variable $\mu_a$, and $\Sigma_\mu$ is the prior covariance for $\mu_a$. $a_t$ is the action performed by the agent on the $t^{\mbox{\small th}}$ timestep, and $o_t$ is the outcome observed as a result of that action. The next state, $s_{t+1}$ can be derived by applying the outcome function $f$ to the previous state $s_t$ and outcome.
 
-Given this model and a history $s_0, a_0, o_0, ..., s_T, a_T, o_T$, a posterior distribution for latent model variables $\mu_a$ can be inferred, for all actions $a \in A$. Since the Gaussian distribution is conjugate prior to the known-covariance multivariate normal distribution\note{ref?}, there is a closed-form solution for its posterior:
+Given this model and a history $s_0, a_0, o_0, ..., s_T, a_T, o_T$, a posterior distribution for latent model variables $\mu_a$ can be inferred, for all actions $a \in A$. Since the Gaussian distribution is conjugate prior to the known-covariance multivariate normal distribution\note{show this}, there is a closed-form solution for its posterior:
 
 \begin{eqnarray}
 \Sigma' &=& \left(\Sigma_u^{-1}+n\Sigma^{-1}\right)^{-1},\\
@@ -159,7 +159,7 @@ P(X|m, \Psi) &=& \pi^{-\frac{mp}{2}}
 \end{eqnarray}
 which is useful for the mixture models in Section~\ref{models:npm}.
 
-Finally, the unknown variance, unknown mean case also allows efficient inference. The Normal inverse Wishart distribution, which is simply the simultaneous application of a Gaussian and an inverse Wishart, can be used to perform efficient inference in this case.\note{ml: says who?}
+%Finally, the unknown variance, unknown mean case also allows efficient inference. The Normal inverse Wishart distribution, which is simply the simultaneous application of a Gaussian and an inverse Wishart, can be used to perform efficient inference in this case.\note{ml: says who?}
 
 \section{Nonparametric mixture models}
 \label{models:npm}
@@ -183,7 +183,7 @@ o_{s,a} &\sim& Mult(\theta_{C_s,a}).
 
 In this model, $C$ is the set of assignments of states to clusters. So, $C_1$ is the number representing the cluster to which $s_1$ belongs. The quantity $\theta_{z,a}$ is the parameter to the dynamics for states in cluster $z$ when performing action $a$. Finally, the outcome histogram $o_{s,a}$ is drawn from a multinomial parameterized by the $\theta$ corresponding to the cluster containing the state in question.
 
-Using this model, we can sample dynamics from the posterior $P(\theta, C|o)$ to get a guess about the underlying MDP. Because the Dirichlet distribution is conjugate to the multinomial distribution, the likelihood $P(o|C)$ can be evaluated efficiently. Using that likelihood, approximation techniques can be used to effectively sample the posterior $P(C|o)\propto P(o|C)P(C)$, and then sampling from $P(\theta|C,o)$ is straightforward.\note{Diagram?  Example?  Something to solidify this complex idea?}
+Using this model, we can sample dynamics from the posterior $P(\theta, C|o)$ to get a guess about the underlying MDP. Because the Dirichlet distribution is conjugate to the multinomial distribution, the likelihood $P(o|C)$ can be evaluated efficiently. Using that likelihood, approximation techniques can be used to effectively sample the posterior $P(C|o)\propto P(o|C)P(C)$, and then sampling from $P(\theta|C,o)$ is straightforward.\note{Diagram?  Example?  Something to solidify this complex idea?} \note{pp:This is not clear.  Please elaborate and provide a Figure and/or some derivation.}
 
 \subsection{Gaussian mixture models}
 
@@ -249,7 +249,7 @@ P(x|\alpha) &=& \int_\theta Mult(x|\theta)Dir(\theta|\alpha)d\theta\\
 \end{eqnarray*}
 \subsubsection{Parameter Sampling}
 
-Given a particular clustering assignment $C$, the parameters for individual clusters are independent. For the continuous features (\emph{state}, \emph{outcome} and \emph{reward}) the normal parameters can be sampled from the Inverse Wishart posterior. For the discrete feature (\emph{terminal} indicator) the Multinomial parameters can be sampled from the Dirichlet posterior. Through this process of finding a clustering and using posterior sampling to find cluster parameters, a sample is drawn from the \prior{ROAR} posterior.
+Given a particular clustering assignment $C$, the parameters for individual clusters are independent. \note{pp: Are they really independent or conditionally independent given the higher level hyperparameters of the CRP?} For the continuous features (\emph{state}, \emph{outcome} and \emph{reward}) the normal parameters can be sampled from the Inverse Wishart posterior. For the discrete feature (\emph{terminal} indicator) the Multinomial parameters can be sampled from the Dirichlet posterior. Through this process of finding a clustering and using posterior sampling to find cluster parameters, a sample is drawn from the \prior{ROAR} posterior.
 
 \subsubsection{Instance Sampling and Trajectory Sampling}
 
@@ -259,7 +259,7 @@ It is important to note that the cluster $c$ chosen in this step does not have t
 
 For planning, dealing directly with the Gaussian mixture model described in this section is inconvenient. It is much simpler to sample transitions directly, using Monte-carlo simulations, rather than deal with their distributions. To generate $n$ instances from the model, we sample from the distribution $P(I_1,...,I_n|M,s_1,a_1,...,s_n,a_n)$. That is, we jointly draw a collection of new instances $I_t=\left<s_t,a_t,o_t,r_t,\phi_t\right>$, conditioned on the states and actions that make them up. By doing so, we can generate the outcomes, rewards and termination signals necessary for our planner.
 
-The distribution can be broken down according to specific instances to be $$\prod_{j=1}^n P(I_j|M,I_1,...,I_{j-1},s_j,a_j)$$. That is, the distribution of an instance $I_j$ depends on all previous instances drawn---sampling is done \emph{without replacement}.
+The distribution can be broken down according to specific instances to be $$\prod_{j=1}^n P(I_j|M,I_1,...,I_{j-1},s_j,a_j).$$ That is, the distribution of an instance $I_j$ depends on all previous instances drawn---sampling is done \emph{without replacement}. \note{pp: This isn't clear.}
 
 Although it is tempting to sample the instances i.i.d., this shortcut will lead to all instances in unexplored areas of the state space being sampled directly from the prior\footnote{In the generative model, the means for new cluster outcome and reward distributions are drawn from a uniform distribution. In practice, using a mean of zero for the first sample, and the sample mean thereafter, is effective.}. Doing so causes the unexplored areas to appear the same as the other unexplored areas in every model sampled. When they are sampled jointly as described, the \emph{distributions} for those unexplored areas are sampled from the prior, but the \emph{instances} are sampled from those distributions. As a result the unexplored areas are distinct from one another and from those in other models. There is same-model consistency in these areas that is not achieved otherwise.\note{I don't think there's enough detail here to really inform anyone.  More concreteness is key}
 
