@@ -1,9 +1,17 @@
 
-In this chapter, we discuss important related work that will influence, directly and indirectly, later contributions. \note{Can you say briefly what dimensions of relatedness you are using?  How are you deciding what to include and what not to include?}
-
-
+In this chapter, we discuss important related work that will influence, directly and indirectly, later contributions. \note{Can you say briefly what dimensions of relatedness you are using?  How are you deciding what to include and what not to include?} Along with algorithms of general interest to a student of model-based Bayesian reinforcement-learning, there are
+\reply{
+\begin{itemize}
+\item algorithms that make use of a flexible prior~\cite{strens00,wang05,sorg10,araya2012near},
+\item model-based Bayesian RL algorithms with PAC-BAMDP guarantees~\cite{kolter09,sorg10,araya2012near}.
+\item the \alg{FSSS} algorithm, which is used as a building block in Chapter~\ref{sec:relmbbrl}, and several other tree search planners~\cite{kearns99,kocsis06}.
+\item existing model-based RL algorithms used for comparisons in Chapter~\ref{sec:experiments}~\cite{brafman03,jong07}.
+\end{itemize}
+}
 
 \section{Bayes-adaptive Markov decision processes}
+
+\note{jta: this is now part of the intro as well, and since this section doesn't describe an algorithm, maybe delete it}
 
 The Bayes-adaptive MDP, or BAMDP~\cite{duff03}, is an MDP whose optimal policy is the Bayes-optimal policy for some other unknown MDP that is drawn from a known prior. Every state in the BAMDP is a belief-state composed of a history, or the set of observations made by the agent so far, and the concrete state that the agent is currently in.
 
@@ -13,13 +21,13 @@ The transition function of the BAMDP is defined as follows:
 P(\langle s', h + (s,a,s',r)\rangle, r | \langle s, h\rangle, a) =& \int_M P(s', r | s, a, M)\phi(M|h) dM,
 \end{eqnarray}
 \note{pp: Why is the distribution over h?  Should it be conditioned on h only?}
-where $\langle s, h\rangle$ is the belief-state where the agent begins, and is composed of the concrete state $s$ and history $h$. The value $h$ is the summary of all transitions observed by the agent over the course of its lifetime. Here, they are represented by $(s, a, s',r)$ tuples detailing the beginning and ending concrete\note{undefined.  should introduce this term earlier.} states, the action taken and the reward received.
+where $s$ and $s'$ are \emph{concrete} states from the unknown MDP, $\langle s, h\rangle$ is a belief-state, in the BAMDP, where the agent begins, and is composed of the concrete state $s$ and history $h$. The value $h$ is the summary of all transitions observed by the agent over the course of its lifetime. Here, they are represented by $(s, a, s',r)$ tuples detailing the beginning and ending concrete states, the action taken and the reward received.
 
-The likelihood \note{?} is taken by integrating out the underlying ``true'' MDP, according to MDP's posterior distribution. The generative process \note{?} is equivalent to first sampling an MDP $M$ from the posterior distribution $\phi(M|h)$, and then sampling the next state and reward $s', r$ from the MDP.
+The likelihood of the transition in the BAMDP is taken by integrating out the underlying and unknown ``true'' MDP, according to MDP's posterior distribution. If a next-state sampler is needed, rather than an exact transition probability, the process is to first sample an MDP $M$ from the posterior distribution $\phi(M|h)$, and then sample the next state $s'$ and reward $r$ from $M$.
 
-By constructing the BAMDP according to Equation~\ref{rel:bamdp:prob}, the optimal policy is identical to the Bayes-optimal policy in the learning setting. This fact follows because the succession of transition likelihoods is exactly the same as those indicated in the Bayesian model. \note{Can you sum up why that's important?}
+By constructing the BAMDP according to Equation~\ref{rel:bamdp:prob}, the optimal policy is identical to the Bayes-optimal policy in the learning setting. This fact follows because the succession of transition likelihoods is exactly the same as those indicated in the Bayesian model\footnote{See Chapter~\ref{sec:intro}, Section~\ref{sec:intro:bayes-opt} for a full explanation of why optimal in the BAMDP is Bayes-optimal while learning the MDP.}. \note{ml: Can you sum up why that's important? jta: added footnote}
 
-Unfortunately, the BAMDP has potentially an infinite number of states, since each possible history maps to a different belief state. However, as the number of observations from a particular concrete state and using a particular action grows large, the distribution over the possible next concrete states converges, allowing a clever algorithm designer to collect large sets of belief states together into equivalent classes, for the purposes of planning. \note{Has that been done?  What is the status of this algorithm?}
+Unfortunately, the BAMDP has potentially an infinite number of states, since each possible history maps to a different belief state. However, as the number of observations from a particular concrete state and using a particular action grows large, the distribution over the possible next concrete states converges, allowing a clever algorithm designer to collect large sets of belief states together into equivalent classes, for the purposes of planning. \note{Has that been done?  What is the status of this algorithm?} \reply{ml: An easy way to make this optimization is to not adjust the posterior when an observation is made for a particular state-action pair $s,a$ if that pair has been observed at least $B$ times in the past, for a choice of $B$ sensible for the prior. This trick can be used in any model-based Bayesian RL algorithm that uses a posterior sampler.}
 
 
 
@@ -119,6 +127,10 @@ The {\bf VBEB} algorithm provides a framework for analyzing an arbitrary prior, 
 
 \note{can it handle all possible priors?  does it have guarantees?}
 
+
+\section{BOLT}
+
+This is a paper that should be included~\cite{araya2012near}. \note{write this section}
 
 
 \section{RMAX}

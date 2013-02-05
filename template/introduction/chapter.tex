@@ -151,6 +151,8 @@ An algorithm that is PAC-MDP will, with high probability, make approximately opt
 
 \subsubsection{Bayes-optimal}
 
+\ref{sec:intro:bayes-opt}
+
 \emph{Bayes-optimality} is an optimality guarantee made in the context of an MDP prior. The prior distribution acts as knowledge about the environment given to the agent before learning occurs. If the MDP truly is drawn from the provided prior, then the policy that acquires the highest expected return is well-defined, if difficult to compute.
 
 Since every step in the environment affects the agent's belief about the environment in a well-defined way, it is possible to account for all possible step sequences and belief updates over some finite horizon.
@@ -172,21 +174,38 @@ The intuition behind the accuracy of the BAMDP for Bayesian-optimal decision mak
 
 \note{[give the equations; that would help]}
 
+\reply{
+With a model prior $\phi$ that supports MDPs with state-space $S$, action-space $A$, and discount factor $\gamma$, the corresponding BAMDP is a new MDP with the same action-space and discount factor, but a new state-space. The state-space is $S\times H$, where $H$ is the set of all possible sequences of transitions, where a transition is a tuple $(s, a, s', r)$. The prior $\phi$ can then be conditioned on a history $h$ to get the posterior $\phi|h$. The transition function of the BAMDP $M|\phi$ is then defined to be
+\begin{eqnarray}
+P(\langle s', h+(s,a,s',r)\rangle|\langle s, h\rangle, a) &=& \int_M P(s', r|s,a,M) \phi(M|h) dM. \label{sec:intro:bamdp-transition}
+\end{eqnarray}
+In Equation~\ref{sec:intro:bamdp-transition}, the transition likelihood to the concrete state in question, $s'$, is considered for all possible MDPs $M$ and weighted according to their posterior likelihoods, taken from $\phi|h$.
+}
+
 Finding the value of a belief-state can then be done recursively via dynamic programming, treating the set of next belief-states as a set of independent planning problems solved in the exact same way. When the agent takes a step in the actual environment, the agent's new belief matches exactly one of the beliefs considered in the planning problem from the previous state.
 
-If the environment is truly drawn from the agent's prior, simulating experience according to the prior and calculated posteriors is the exact same process as running through a single trajectory in the experiment. In fact, the entire BAMDP is known perfectly. Unfortunately, it is usually difficult to completely solve, since it is so large relative to the underlying MDP. \note{[how large?]}
+If the environment is truly drawn from the agent's prior, simulating experience according to the prior and calculated posteriors is the exact same process as running through a single trajectory in the experiment. In fact, the entire BAMDP is known perfectly. Unfortunately, it is usually difficult to completely solve\note{[how large?]}\reply{, since the complete BAMDP has an infinite number of states. Even if we consider only those states reachable in a fixed number of steps (sufficient for approximate planning when there is a discount factor), the number of reachable BAMDP belief-states grows exponentially with that horizon length, the number of actions, and the number of different concrete states reachable in a given transition.
+}
 
 \subsubsection{PAC-BAMDP}
 
-\emph{Probably Approximately Correct for Bayes Adaptive MDPs} (also known as near Bayes-optimal~\cite{kolter09}), or PAC-BAMDP, is an optimality guarantee for Bayesian reinforcement-learning. \note{[huh.  is that your name?  if so, claim it.]}
+\emph{Probably Approximately Correct for Bayes Adaptive MDPs} (also known as near Bayes-optimal~\cite{kolter09}), or PAC-BAMDP~\cite{araya2012near}, is an optimality guarantee for Bayesian reinforcement-learning.
 
-Exact Bayes-optimal policy inference is generally intractable. Even with a small number of discrete actions and discrete states with a finite horizon, the size of the tree grows exponentially with its depth (with $A$ actions, $S$ states, and a depth of $d$, there can be up to $(A S)^d$ nodes if the tree is fully searched \note{[the tree is an abstraction, right?  so it has that many nodes regardless of whether it is fully searched.] no, since two beliefs can have children that are the same belief}). This growth rate means that even if we limit our planning to some depth\footnote{With a discount factor $\gamma$, an accuracy constraint $\epsilon$, and a maximum value $\Vmax$, we need not consider anything farther than $\log_\gamma \frac \epsilon \Vmax$ steps away. }\note{[cite your analysis earlier] for the footnote}, fully evaluating every possibility is very expensive.
+Exact Bayes-optimal policy inference is generally intractable. Even with a small number of discrete actions and discrete states with a finite horizon, the size of the tree grows exponentially with its depth (with $A$ actions, $S$ states, and a depth of $d$, there can be up to $(A S)^d$ nodes visited by any algorithm. This growth rate means that even if we limit our planning to some depth\footnote{With a discount factor $\gamma$, an accuracy constraint $\epsilon$, and a maximum value $\Vmax$, we need not consider anything farther than $\log_\gamma \frac \epsilon \Vmax$ steps away. }\note{[cite your analysis earlier] for the footnote}, fully evaluating every possibility is very expensive.
 
 As is common in machine-learning tasks, we can opt to satisfy ourselves with a probably approximately correct variation. Instead of considering all possible next belief-states in the search tree, we may consider a sufficiently representative subset. Limiting ourselves to the smaller set introduces some probability of failure, denoted $\delta$. In general, as $\delta$ grows small, the necessary size of the subset grows large. Instead of searching infinitely deep into the tree, we may consider nodes only up to a certain depth. Searching only to some depth introduces an accuracy error, denoted $\epsilon$. In general, as $\epsilon$ goes to zero, the necessary depth of the search tree goes to infinity.
 
-An algorithm that is PAC-BAMDP will, with high probability, make approximately Bayes-optimal decisions \note{[you should define this concept with symbols, too]} for all but a polynomial number of steps, where the polynomial is a function of the number of states (not the number of belief states), actions, $\epsilon$, and $\delta$.
+An algorithm that is PAC-BAMDP will, with probability $1-\delta$, make $\epsilon$-Bayes-optimal decisions for all but a polynomial number of steps, where the polynomial is a function of the number of concrete states (not the number of belief-states), actions, $\epsilon$, and $\delta$.
 
-\subsubsection{PAC-MDP and PAC-BAMDP} These two different optimality guarantees are related in the following ways:
+The concept of PAC-BAMDP is not quite on the same level as PAC-MDP. With a PAC-MDP algorithm, it is normally impossible to act optimally for all steps. That is, the polynomial number of mistakes is necessary in order to find the optimal policy later. There is simply not enough information available to the agent until many potentially sub-optimal steps are taken. With PAC-BAMDP, it is possible to achieve $\epsilon$-$\delta$ Bayes-optimal behavior with \emph{zero} sub-optimal steps. All information needed to act Bayes-optimally is contained in the prior.
+
+An example of an $\epsilon$-$\delta$-Bayes optimal algorithm that requires zero sub-optimal steps is the application of \alg{Sparse Sampling} to the BAMDP. The \alg{Sparse Sampling} algorithm, discussed in detail in Chapter~\ref{sec:relmbbrl}, performs an exhaustive tree search up to some provided depth $d$, trying every action from each visited state $C$ times in order to get a good representation of the next-state distribution. The quantities $d$ and $C$ are chosen to ensure that a $\epsilon$-accurate value for the state is found with probability $1-\delta$. Given $d$ and $C$, \alg{Sparse Sampling} will have to create $(A C)^d$ nodes in its search tree, where $A$ is the number of actions. As a result of this exponential component to the algorithm's runtime, and the fact that $C$ and $d$ need to be phenominally large\footnote{zzz: crunch some numbers} to ensure a reasonable accuracy, \alg{Sparse Sampling} is impractical to use even in most trivial problems.
+
+PAC-BAMDP can then be called a compromise between a reinforcement-learning algorithm's sample complexity and computation complexity. \alg{Sparse Sampling} on the BAMDP has a sample complexity of $0$, but an exponential computation complexity. Chapter~\ref{sec:relmbbrl}, on related work, and Chapters~\ref{sec:boss}~and~\ref{sec:bfs3}, on the contributions of this dissertation, describe algorithms with PAC-BAMDP guarantees and several ways to approach the computation complexity issue.
+
+\subsubsection{PAC-MDP and PAC-BAMDP}
+
+These two different optimality guarantees are related in the following ways:
 
 \begin{enumerate}
 \item If the environment is drawn from the agent's prior, then a PAC-BAMDP agent is also PAC-MDP, and vice versa. \label{intro:opt:pac-equiv} \note{[I don't believe you.  Proof?]}
@@ -208,7 +227,7 @@ Bayesian inference is based on one simple equation, Bayes rule, that relates the
 where $H$ is the hypothesis and $E$ is the evidence. The quantity $P(H|E)$, or the probability of the hypothesis conditioned on the evidence, is the posterior; $P(E|H)$, or the probability of the evidence conditioned on the hypothesis, is the data likelihood; $P(H)$, or the probability of the hypothesis without regard to the evidence, is the prior; $P(E)$, or the probability of the evidence without regard to the hypothesis, plays the role of a normalizing factor and is not calculated directly.
 
 \subsection{Coin flipping}
-
+\label{sec:intro:coin-flipping}
 An example that can illustrate the Bayesian inference process is that of learning the bias of a coin by flipping it a number of times.
 
 Suppose there is a bag of $10000$ coins, $10$ of which are two-headed. The remaining $9990$ coins are fair coins, equally likely to flip heads or tails. The experiment is to take a coin from this bag, and track how likely it is that the coin is biased after some number of $n$ observed flips.
@@ -229,8 +248,6 @@ The number of observed heads, $H$, is drawn from the binomial distribution, whic
 \begin{eqnarray}
 \label{intro:eqn:binomial} P(H=h|\rho, n) = {n \choose h} h^\rho (n-h)^{1-\rho}.
 \end{eqnarray}
-
-\note{[have you seen Zinkov's post about Bayesian machine learning?  It's interesting and has gotten a lot of attention.]}
 
 The prior distribution of the coin's bias is defined explicitly in the generative model, in Equation~\ref{intro:eqn:coinbag}. To find the corresponding posterior distribution, one must use Bayes rule from Equation~\ref{intro:eqn:bayes}.
 
@@ -273,7 +290,7 @@ This same process, applying Bayes rule to turn a prior and observations into a p
 
 \subsection{The Chinese Restaurant Process}
 
-The Chinese Restaurant Process, or CRP, is a nonparametric prior that can be used to guess assignments of elements in a set to clusters\note{[ref]}. Here, the word nonparametric indicates that the number of parameters supplied by the CRP posterior is not known in advance and instead depends on the size of the observation set that it is given.
+The Chinese Restaurant Process, or CRP, is a nonparametric prior that can be used to guess assignments of elements in a set to clusters~\cite{teh2010dirichlet}. Here, the word nonparametric indicates that the number of parameters supplied by the CRP posterior is not known in advance and instead depends on the size of the observation set that it is given.
 
 \begin{figure}[t]
 \begin{center}
@@ -284,8 +301,7 @@ The Chinese Restaurant Process, or CRP, is a nonparametric prior that can be use
 \end{figure}
 
 
-
-The CRP is exchangeable. That is, the order of the elements does not affect the posterior assignment distribution. \note{[maybe say that later because you haven't told us what it is yet]} Additionally, the CRP prior likelihood is easy to evaluate online. For a new element, the prior likelihood that it belongs to any given cluster is proportional to the number of elements already in that cluster, and the prior likelihood that it belongs in a new cluster is proportional to a parameter $\alpha$ \note{[isn't there something having to do with its similarity to what's already there?  maybe that's not the prior, though.] no}.
+The CRP prior likelihood is easy to evaluate online. For a new element, the prior likelihood that it belongs to any given cluster is proportional to the number of elements already in that cluster, and the prior likelihood that it belongs in a new cluster is proportional to a parameter $\alpha$ \note{ml: [isn't there something having to do with its similarity to what's already there?  maybe that's not the prior, though.] jta: no, not part of the prior}.
 
 Inference on mixture models can often be done with a CRP. A generative mixture model follows. The observed data $X$ and the base measure $G_0$ are given, and $\alpha$ is a parameter that influences cluster size:
 
@@ -306,13 +322,15 @@ P(C|\alpha)&=&\alpha^r \frac {\Gamma(\alpha)}{\Gamma(\alpha+\sum_i n_i)}\prod_i\
 \end{eqnarray}
 where $n_i = \sum_{j} \delta_{C_j,i}$, and $\delta_{i,j}=1$ iff $i=j$, is the number of elements assigned to cluster $i$, and $r$ is the number of clusters with at least $1$ member.
 
+The CRP is exchangeable. That is, the order of the elements does not affect the posterior assignment distribution.
+
 It is worth noting that the number of possible vectors $C$ grows exponentially with the number of elements in $X$. For CRP inference, Gibbs sampling~\cite{andrieu03,neal00} is a practical way to do approximation.
 
 \section{Bayesian models for reinforcement-learning}
 
-As mentioned briefly at the beginning of this chapter, the Bayesian approach to learning can be applied to modeling reinforcement-learning domains. There exist Bayesian approaches to model-free reinforcement-learning~\cite{dearden98}, but they do not fit within the scope of this dissertation. \note{[why?] because...this is about model-based and they're model-free?}
+As mentioned briefly at the beginning of this chapter, the Bayesian approach to learning can be applied to modeling reinforcement-learning domains. There exist Bayesian approaches to model-free reinforcement-learning~\cite{dearden98}, but they do not fit within the scope of this dissertation \note{ml: why?} \reply{devoted to model-based reinforcement-learning.}
 
-For model building for reinforcement-learning, we must first start with a model prior. We combine it with observations made by the agent to derive a model posterior. Reasoning about future choices that the agent will make can use this model posterior. \note{[confusing, reword.  "will make can"?]}
+For model building for reinforcement-learning, we must first start with a model prior. We combine it with observations made by the agent to derive a model posterior. This model posterior can be used for reasoning about future choices that the agent will make.
 
 \subsection{Flat Dirichlet multinomial}
 
@@ -331,10 +349,13 @@ Because the Dirichlet distribution is conjugate to the multinomial distribution,
 \end{eqnarray}
 
 \note{[reference for these properties?]}
+\reply{
+The derivation for Equations~\ref{intro:eqn:fdm-theta}~and~\ref{intro:eqn:fdm-s} are a result of Equation~\ref{sec:models:dir-mult-conj} in Chapter~\ref{sec:models}.
+}
 
 Equation~\ref{intro:eqn:fdm-theta} gives us the ability to sample from the MDP posterior. Equation~\ref{intro:eqn:fdm-s} gives us the ability to sample experience, and as a result \prior{FDM} can be considered a trajectory prior. This capability is useful if the planner wants only a simulation oracle, and doesn't care about entire models.
 
-This prior is theoretically attractive, since it easily supports all possible discrete-state -action MDPs. On the other hand, it is not particularly informative as it treats estimating each state-action as a separate learning problem. \note{[On the other hand, it *could* be informative… there could be a strong prior for each one and the MDP could essentially be known through the prior.]} RL agents that rely on the \prior{FDM} prior generally do not significantly outperform non-Bayesian agents\note{[ref?]}; if the prior knowledge states, essentially, that it is an MDP and the transition functions can be any multinomial, this information does not give the Bayesian agent a leg up on other agents, since this assumption will usually be baked into the algorithm design from the beginning. \note{[ok, but a little weak.]}
+This prior is theoretically attractive, since it easily supports all possible discrete-state discrete-action MDPs. but not good at generalizing as it treats estimating each state-action as a separate learning problem. \note{[On the other hand, it *could* be informative… there could be a strong prior for each one and the MDP could essentially be known through the prior.]} \reply{On the other hand, a different choice of the $\alpha$ parameter for each state-action pair can be used to essentially \emph{know} the MDP before hand - with some uncertainty built in where appropriate.} RL agents that rely on the \prior{FDM} prior generally do not significantly outperform non-Bayesian agents\note{[ref?]}; if the prior knowledge states, essentially, that it is an MDP and the transition functions can be any multinomial, this information does not give the Bayesian agent a leg up on other agents, since this assumption will usually be baked into the algorithm design from the beginning. \note{[ok, but a little weak.]}
 
 \subsection{Gaussian bandits}
 
