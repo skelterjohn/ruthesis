@@ -60,10 +60,28 @@ The fact that some samples will make an unknown state appear attractive and othe
 
 The parameter $K$, which is the number of steps taken between samples, should be chosen to approximate the length of a trial (in situations where there is a goal state) or the width of the MDP (maximum expected number of steps to get from any given state to any other given state) when there is an infinite horizon.
 
-The idea here is that the agent should be able to reach any particular state it wants before the next sample is taken and the agent might change its mind about where it is trying to go. Consider a simple \env{chain} MDP, where only the two states on the end are unknown. In a given posterior sample, one of the two ends may have a higher apparent value than the other. In the next sample, the relative values of these two states may switch. If a new sample is taken before the agent can reach one of the ends (and therefore learn about its dynamics), thrashing \note{pp: What does trashing mean here?  Why will it result in an exponential number of steps?} can occur, resulting in a very large number of steps (relative to the number of states) before knowledge is gained.
+The idea here is that the agent should be able to reach any particular state it wants before the next sample is taken and the agent might change its mind about where it is trying to go. Consider a simple \env{chain} MDP, where only the two states on the end are unknown. In a given posterior sample, one of the two ends may have a higher apparent value than the other. In the next sample, the relative values of these two states may switch. If a new sample is taken before the agent can reach one of the ends (and therefore learn about its dynamics), thrashing can occur, resulting in an exponential number of steps (relative to the number of states) before knowledge is gained.
 
-Spacing out the MDP samples temporally allows the agent to visit at least one unknown (and optimistically sampled) state every $K$ steps (assuming that any of the unknown states are optimistic in the posterior sample for those $K$ steps). \note{pp: Why is it important to space the MDP samples? Isn't it better to take into account the data collected as soon as it becomes available?}
+To understand how thrashing can cause an exponential number of sub-optimal steps, consider an MDP with one root state and $N$ ``chains'' leading off from that root state. At the end of one of these chains is the goal, and the prior does not give preference to which chain might have that goal. At the root, the agent can choose which chain to travel, but after that is limited to two choices: continue or reset. Everything about the MDP is known except the identity of the chain containing the high-valued goal. As a result, the posterior does not change except when the agent reaches the end of a chain that it has not reached before. Since the prior has no indication of which chain has the goal, each time a sample is drawn the goal is randomly put at the end of one of the chains. With \alg{Bayesian~DP}, if the agent is already on this chain, it can continue getting closer to the goal. If the agent is on the wrong chain, it needs to reset and head down the correct one. 
 
+If the length of each of the chains is $L$, this requires $L/K$ identical guesses in a row in order for the agent to either get the goal or remove that chain from the posterior. With $N$ unknown chains remaining, the likelihood of this event happening for any $\frac L K$ consecutive posterior samples is $(\frac 1 N)^\frac L K$. Briefly, consider the problem of counting the number of flips of a biased coin before $M$ consecutive heads turn up, where each flip is heads with probability $p$. The likelihood of flipping $M$ heads in a row is $p^M$. At the beginning, or immediately following a tails, there are $M$ different events that can happen, each with different likelihoods. There are $M-1$ versions of flipping $T$ heads and then a tails, for $0\leq T < M$ (a failure), each with probability $p^T(1-p)$ and taking $T$ flips, and there is flipping $M$ heads (a success), with probability $p^M$ and taking $M$ flips. Since the expected number of failures before a success is $1/(p^M)$, we can count the total number of expected steps by multiplying $1/(p^M)$ by the expected number of steps in a failure, which is
+\begin{eqnarray}
+E[T] &=& \sum_{T=0}^{M-1} P(T) T,\\
+ &=& \sum_{T=0}^{M-1} p^T (1-p) T,\\
+ &=&  (1-p)p \sum_{T=0}^{M-1} p^{T-1} T,\\
+ &=&  (1-p)p \sum_{T=0}^{M-1} \frac {d p^T} {d p},\\
+ &=&  (1-p)p \frac {d \sum_{T=0}^{M-1} p^T} {d p},\\
+ &=&  (1-p)p \frac {d \frac {1-p^M}{1-p}} {d p},\\
+ &=&  (1-p)p \left[ (1-p)(1-p^M)-\frac{Mp^{M-1}}{1-p}\right],\\
+ &=&  p(1-p)^2(1-p^M)-Mp^{M}.
+\end{eqnarray}
+Returning to the $N$-chain MDP, if we consider $p=(\frac 1 N)^\frac L K$ and $M=\frac L K$, the expected number of samples drawn (coins flipped) in a failure will be $E[T]+1$ (the first sample is what we choose to think of as heads - the others then need to match it). With an expected $(\frac 1 N)^{-\frac L K}$ failures before the first success, that gives an expected 
+\begin{eqnarray}
+\lefteqn{E[\mbox{number of failures}]E[\mbox{steps per failure}]+E[\mbox{steps per success}]}\\
+ &=& \left(\frac 1 N\right)^{-\frac L K} (p(1-p)^2(1-p^M)-Mp^{M}+1) + \frac L K
+\end{eqnarray} samples before reaching the end of one of the chains. Ignoring the smaller pieces, the $(\frac 1 N)^{-\frac L K}$ factor is exponential with respect to the length of the chain.
+
+Spacing out the MDP samples temporally allows the agent to visit at least one unknown (and optimistically sampled) state every $K$ steps (assuming that any of the unknown states are optimistic in the posterior sample for those $K$ steps). Choosing a $K$ that is at least as great as the expected number of steps to get from any state in the MDP to any other state in the MDP alleviates the thrashing issue seen in the $N$-chains example above. With $K=L$, $(\frac 1 N)^{-\frac L K} \rightarrow N$, and there is no exponential factor in the expectation.
 
 
 \section{BEETLE}
@@ -75,21 +93,6 @@ This algorithm assumes a flat Dirichlet multinomial prior, where each of the MDP
 \note{pp: We use Dirichlets to express distributions over the model parameters, but we don't draw any samples.  All integrals are computed exactly.}
 
 \note{Given that Pascal is on the committee, it sure seems like this section should be extensive.  Currently, it's the shortest one.}
-
-
-\section{Bayesian Sparse Sampling}
-
-\alg{Bayesian Sparse Sampling}~\cite{wang05} is an adaptation of Sparse Sampling (see Section~\ref{sec:rel:ss}) that uses a model prior and a targetted method of choosing actions while planning.
-
-Where Sparse Sampling \note{pp: Explain sparse sampling.} is only able to estimate a state's value for a particular concrete model, Bayesian Sparse Sampling works with uncertainty, codified by a provided model prior. Every time a next-state is needed to further build the search tree \note{pp:This is the first time that you talk about a search tree.  Explain the algorithm first and then talk about the resulting search tree.} , a model is sampled from the posterior, and the next-state is sampled from that model. Future next-states in the sub-tree of the newly sampled next-state will include this generated transition in their observation sets, allowing the sub-trees to simulate learning. \note{how is it not just sparse sampling?  in fact, the original sparse sampling paper (I'm pretty sure) observes that it applies equally as well to POMDPs as MDPs.  Isn't it, in a sense, just being applied to the BAMDP?}
-
-The method of action-selection differs from Sparse Sampling in that rather than trying each action a number of times, Bayesian Sparse Sampling will run a series of roll-outs. note{define roll-out better} To choose the action at each stage in the roll-out, Bayesian Sparse Sampling samples a model from the posterior and finds the optimal action in the sampled model from the current state, and chooses that state, similar to Thompson sampling~\cite{thompson33}.
-
-\note{wait, if it's doing roll outs, why does it need the sparse sampling tree at all?}
-
-Choosing actions by identifying the optimal action in posterior samples allows Bayesian Sparse Sampling to target its exploration to attempt only actions that have a chance of being optimal. Also, when the posterior has converged to something close to the truth, the sampled model will be consistent and correct, and Bayesian Sparse Sampling will only choose the best action, wasting no samples in its value estimation.
-
-This algorithm has some efficiency issues; it requires sampling from the posterior and solving for the true optimal action in the inner loop. Both posterior sampling and model solving can often be computationally difficult. There are cases where the posterior sampling and model solving can be done efficiently, for instance when the model is a bandit problem with the Beta prior~\cite{wang05}.
 
 
 
@@ -155,13 +158,10 @@ The \alg{Potential-based shaping RMAX}~\cite{asmuth08} algorithm addresses this 
 
 This algorithm works by assigning unknown states a value of $\phi(s)$, rather than $\Vmax$, the highest possible value. Setting $\phi(s)=\Vmax$ is allowed, since $\Vmax$ automatically satisfies the admissibility requirement, but lower values result in faster convergence.
 
-On the downside, this algorithm is very conservative, like the rest of the \alg{RMAX} family. Requiring a fixed number of visits to a state-action pair before it becomes known means a lot of exploration steps, some of which might not be necessary in practice.
-
-\note{not quite.  using V* for Phi leads to a perfect policy, right?  it is only as conservative as the shaping function makes it}
+On the downside, this algorithm is very conservative, like the rest of the \alg{RMAX} family. Requiring a fixed number of visits to a state-action pair before it becomes known means a lot of exploration steps if the heuristic is too optimistic, some of which might not be necessary in practice.
 
 
-
-\section{Instance-based model learning}
+\subsection{Fitted-RMAX}
 
 Instance-based methods represent functions by a set of examples and use a predefined similarity function to generalize to novel inputs. In the reinforcement-learning setting, an instance is the tuple $\langle s, a, s', r \rangle$, or the combination of state, action, next state and reward.
 
@@ -173,11 +173,9 @@ d(s_1,s_2)&=&\exp\left(\frac{-||s_1 - s_2||^2_2}{b}\right),
 \end{eqnarray}
 where $b$ is a \emph{width} parameter used to determine how much distance affects the similarity between two states.
 
-The possible next-states and rewards are then taken from a weighted average of those seen before when taking the action in question, where each possibility $\langle s'_i, r_i \rangle$ is weighted by $d(s_t, s_i)$, where $s_t$ is the state from which the agent is considering taking an action.
+The possible outcomes and rewards are then taken from a weighted average of those seen before when taking the action in question, where each possibility $\langle o_i, r_i \rangle$ is weighted by $d(s_t, s_i)$, where $s_t$ is the state from which the agent is considering taking an action.
 
-\note{one difference from how I remember this algorithm is that I think he used *relative* transitions, not absolute transitions.}
-
-Since this algorithm is applied in continuous domains, the standard definition of knownness that uses visit counts cannot be used.  Instead, a distance metric needs to be incorporated. One way to find one is to take the sum of the similarity scores between the state in question and all previously experienced states, and declare a threshold $B$, over which the knownness metric declares a state to be known. \note{that's one way… is that what the algorithm does?} Unknown states are then assigned maximum value, according to the rules of \alg{RMAX}.
+Since this algorithm is applied in continuous domains, the standard definition of knownness that uses visit counts cannot be used.  Instead, a distance metric needs to be incorporated. The sum of the similarity scores between the state in question and all previously experienced states is taken and compared to a threshold $B$, over which the knownness metric declares a state to be known. Unknown states are then assigned maximum value, according to the rules of \alg{RMAX}.
 
 Once a policy is found for the {\bf Fitted-RMAX} model, using some existing continuous-state planner, the agent will be drawn to explore states that are either unknown or have high value, like the original \alg{RMAX} on which it is based.
 
@@ -224,11 +222,9 @@ Once a policy is found for the {\bf Fitted-RMAX} model, using some existing cont
 	\Return $V$
 \end{algorithm}
 
-\alg{Sparse~Sampling}~\cite{kearns99}, outlined in Algorithm~\ref{alg:ss}, is a Monte-carlo tree search ({\bf MCTS}) algorithm \note{not really} for value estimation on MDPs. \note{why not have the Bayesian sparse sampling section as a subsection here?} This algorithm works by performing exhaustive search, using Monte-carlo sampling to estimate transition probabilities. \note{no, I'd call it monte carlo tree *construction*}
+\alg{Sparse~Sampling}~\cite{kearns99}, outlined in Algorithm~\ref{alg:ss}, is a Monte-carlo tree construction algorithm for value estimation on MDPs. This algorithm works by performing exhaustive search, using Monte-carlo sampling to estimate transition probabilities.
 
 Many value-estimation algorithms, especially those preceding the publication of \alg{Sparse~Sampling}, have a strong linear or super-linear dependence on the number of states in the MDP. This dependence often arises as a result of the algorithm's attempt to estimate the value of all states in the MDP.
-
-\note{explain why you've chosen this level of detail for SS.}
 
 \alg{Sparse~Sampling} reduces the dependence on the number of states by only considering states that are likely to be reached from the state whose value is being estimated. This state is the root of a search tree. Each node in the tree is one particular state in the MDP (though more than one node can share a single state).
 
@@ -236,89 +232,27 @@ This algorithm makes use of a next-state generator $P$ to generate transition sa
 
 While this sampling runtime condition will not hold true for general MDPs, it makes practical sense for many situations. For example, in a continuous-state MDP (infinite number of states) that uses an offset drawn from a normal distribution to determine the next state, the amount of time required to sample from that normal distribution will depend only on the number of state features, rather than the number of states. Also, in a gridworld, the next state is often chosen from those states adjacent to the current state, and can be sampled very quickly.
 
-\subsection{Algorithm}
-
-
 The \alg{Sparse~Sampling} algorithm works by sampling a fixed number $C$ of next-states for each action, when taken from the root. The value of those states is estimated recursively and with a search-depth of one less than the current search depth. As a base case, if the current search depth is zero, the value is approximated by $0$.
 
 The algorithm must be provided a probability of success $1-\delta$, required accuracy $\epsilon$ and discount factor $\gamma$. These parameters inform \alg{Sparse~Sampling}'s choice of the parameter $C$ and the desired search depth.
 
 The leaf nodes in the search tree, those whose value is approximated by $0$, are too far in the future, according to the discount factor $\gamma$ and accuracy constraint $\epsilon$, to have a significant affect on the value of the root.
 
-\note{perhaps work through an example of what the bounds suggest for C.  Or maybe just say that it's insanely impractical.}
+Usually, the value $C$ needed in order to achieve a particular $\epsilon$ and $\delta$ is too high for any kind of practical use. Simply running \alg{Sparse~Sampling} on the BAMDP, and taking the action that it suggests has the highest value, results in an approximately Bayes-optimal agent. But, since \alg{Sparse~Sampling} would require an enormous amount of computation, algorithms that require less computation (usually at the cost of some number of sub-Bayes-optimal steps) are desireable.
 
+\section{Bayesian Sparse Sampling}
 
-\subsection{Proof of accuracy}
+\alg{Bayesian Sparse Sampling}~\cite{wang05} is an adaptation of Sparse Sampling (see Section~\ref{sec:rel:ss}) that uses a model prior and a targetted method of choosing actions while planning.
 
-Because later work in this dissertation depends on it, in this section, we present a proof that \alg{Sparse~Sampling} will make an $\epsilon$--accurate value estimation of the root state with probability at least $1-\delta$.
+Where Sparse Sampling is only able to estimate a state's value for a particular concrete model, Bayesian Sparse Sampling works with uncertainty, codified by a provided model prior. Every time a next-state is needed to further build the search tree, a model is sampled from the posterior, and the next-state is sampled from that model. Future next-states in the sub-tree of the newly sampled next-state will include this generated transition in their observation sets, allowing the sub-trees to simulate learning. This process is analogous to \alg{Sparse Sampling} in the BAMDP, except that \alg{Bayesian Sparse Sampling} explores only a small portion of the search tree that \alg{Sparse Sampling} would discover. 
 
-\note{I do not think this chapter wants proofs.  I'd suggest a background section instead of a related work section.}
+The method of action-selection differs from Sparse Sampling in that rather than trying each action a number of times, Bayesian Sparse Sampling will run a series of roll-outs (simulated trajectories through the BAMDP). To choose the action at each stage in the roll-out, Bayesian Sparse Sampling samples a model from the posterior and finds the optimal action in the sampled model from the current state, and chooses that state, similar to Thompson sampling~\cite{thompson33}.
 
-Let $V^*(s)$ be the true value of state $s$. Let $Q^*(s,a)$ be the true Q--value of performing action $a$ in state $s$. Let $U^*(s,a) = R_{sa}+\gamma\frac 1 C \sum_{i=1}^C V^*(s_i)$, where $s_i\sim P_{sa}$, be a one-step approximation of $Q^*(s,a)$.
+\note{ml: wait, if it's doing roll outs, why does it need the sparse sampling tree at all? jta: i don't understand the question}
 
-\subsubsection{\alg{Sparse~Sampling} Accuracy Lemma} With high probability, $Q^*(s,a)$ is close to $U^*(s,a)$.
-\begin{eqnarray}
-|Q^*(s,a)-U^*(s,a)| &=& |R_{sa}+\gamma E_{s'\sim P_{sa}}[V^*(s')] - R_{sa} - \gamma \frac 1 C \sum_{i=1}^C V^*(s_i)|\\
-&=& \gamma |E_{s'\sim P_{sa}}[V^*(s')] - \frac 1 C \sum_{i=1}^C V^*(s_i)|
-\end{eqnarray}
-Claim: $P(|E_{s'\sim P_{sa}}[V^*(s')] - \bar{V^*_C}| \leq \lambda) \geq 1-e^{-\lambda^2 C / {\Vmax^2}}$.
+Choosing actions by identifying the optimal action in posterior samples allows Bayesian Sparse Sampling to target its exploration to attempt only actions that have a chance of being optimal. Also, when the posterior has converged to something close to the truth, the sampled model will be consistent and correct, and Bayesian Sparse Sampling will only choose the best action, wasting no samples in its value estimation.
 
-A version of the Chernoff bound states that, for a random variable $X\in[\alpha,\beta]$,
-$$P(|E[X] - \bar{X_n}| \leq \eta) \geq 1-2e^{\eta^2 n / 2 b}, b=\frac{(\alpha-\beta)^2}4.$$
-In our case, $\eta=\lambda$ and $b=\Vmax^2$.\note{qed symbol}
-
-\note{to use the QED symbol, you should state the result first---not just "close", but what is the bound?  By the way, I use Box.}
-
-Let $Q^n$ and $V^n$ be the estimated Q-values and values $n$ steps from the horizon:
-\begin{eqnarray}
-Q^n(s,a)&=&R_{sa}+\gamma \frac 1 C \sum_{i=1}^C V^{n-1}(s_i),\\
-V^n(s) &=& \max_a Q^n(s,a),\\
-Q^0(s,a)&=&0.
-\end{eqnarray}
-
-Let $\alpha_n$ be a parameter that will be used to bound the difference between $Q^*$ and $Q^n$:
-\note{hang on… where does this expression come from? (first eq)}
-\begin{eqnarray}
-\alpha_{n+1}&=&\gamma(\lambda + \alpha_n),\\
-\alpha_0&=&\Vmax.
-\end{eqnarray}
-Leading us to the conclusion that
-\begin{eqnarray}
-\alpha_H &=& \left(\sum_{i=1}^H \gamma^i \lambda\right)+\gamma^H\Vmax\\
- &\leq& \frac \lambda {1-\gamma}+\gamma^H\Vmax.
-\end{eqnarray} \note{I think a little more talking about what you are doing and what you did is in order here.  What happened to U*?  Don't we need delta?  The union bound?}
-
-\subsubsection{\alg{Sparse~Sampling} Probability Lemma} With high probability, $Q^*(s,a)$ is close to $Q^n(s,a)$:
-
-\begin{eqnarray}
-|Q^*(s,a)-Q^n(s,a)| &=& \gamma\left|E_{s'\sim P_{sa}}[V^*(s')] - \frac 1 C \sum_i V^{n-1}(s_i)\right| \nonumber\\
-&\leq& \gamma \left(\left|E_{s'\sim P_{sa}}[V^*(s')] - \frac 1 C \sum_i V^*(s_i)\right| + \left|\frac 1 C \sum_i V^*(s_i) - \frac 1 C \sum_i V^{n-1}(s_i)\right|\right)\\
-&\leq& \gamma (\lambda + \alpha_n)\\
-&\leq& \alpha_{n+1}.
-\end{eqnarray}
-
-This inequality depends on the fact that
-$$\forall_{s,a}\left|E_{s'\sim P_{sa}}[V^*(s')] - \frac 1 C \sum_i V^*(s_i)\right|\leq \lambda,$$
-which needs to be true for each one of $(kC)^H$ estimates, where $k$ is the number of actions and $H$ is the height of the sampled tree. The likelihood of these all happening at the same time is
-$$1-(kC)^H\exp\left(-\frac{\lambda^2 C}{\Vmax^2}\right).$$ \note{QED?}
-
-\subsubsection{Values for Parameters}
-
-We can now bound 
-$$|Q^*(s,a)-Q^H(s,a)|\leq \alpha_H \leq \gamma^H\Vmax + \frac{\lambda}{1-\gamma}.$$
-
-Let $H=\log_{\gamma}(\lambda/\Vmax)$. Then,
-\begin{eqnarray}
-|Q^*(s,a)-Q^H(s,a)|&\leq& \lambda + \frac{\lambda}{1-\gamma}\\
-&\leq& \frac{2\lambda-\lambda\gamma}{1-\gamma} \\
-&\leq& \frac{2\lambda}{1-\gamma}.
-\end{eqnarray}
-
-Let $\lambda = \frac {\epsilon(1-\gamma)^2}{4}$. Then
-$$|Q^*(s,a)-Q^H(s,a)| \leq \frac {\epsilon(1-\gamma)}2.$$
-
-\note{always try to end with some kind of recap.  in case we fell off the wagon, what just happened?}
-
+This algorithm has some efficiency issues; it requires sampling from the posterior and solving for the true optimal action in the inner loop. Both posterior sampling and model solving can often be computationally difficult. There are cases where the posterior sampling and model solving can be done efficiently, for instance when the model is a bandit problem with the Beta prior~\cite{wang05}.
 
 
 \section{Upper Confidence bounds on Trees}
@@ -365,11 +299,13 @@ The bandit algorithm {\bf UCB} mixes exploration and exploitation. The algorithm
 
 The bonus term used by {\bf UCB} for arm $i$ is $2 C \sqrt{\frac{\log t}{n_i}}$, where $t$ is the total number of pulls on any arm, $n_i$ is the number of times arm $i$ has been pulled, and $C$ is a constant parameter that can be tuned. This bonus term has the nice properties of going to zero as $t$ goes to infinity (allowing {\bf UCB} to rely completely on average observed reward), and being infinite when $n_i$ is zero (forcing {\bf UCB} to try each action at least once).
 
-\note{the depth of explanation in these later algorithms is good.  consider expanding some of the earlier algorithms, as appropriate.}
+\note{ml: the depth of explanation in these later algorithms is good.  consider expanding some of the earlier algorithms, as appropriate.}
 
 {\bf UCT} treats every possible state as a separate bandit algorithm, where each action represents a different bandit arm. As it visits a state again and again in its roll-outs, the {\bf UCB} strategy will push it towards areas of the state-space that are either less explored or have had more favorable returns. This algorithm is also extremely computationally efficient, assuming next-states and rewards can be sampled quickly.
 
 \section{Forward Search Sparse Sampling}
+
+\label{sec:rel:fsss}
 
 {\bf Forward Search Sparse Sampling}~\cite{walsh10}, or \alg{FSSS}, is another MCTS planner that preferentially expands the search tree through the use of rollouts. It is outlined in Algorithm~\ref{alg:fs3}. Unlike either {\bf Bayesian Sparse Sampling} or {\bf UCT}, it retains the attractive guarantees of the original \alg{Sparse~Sampling} algorithm. \alg{FSSS} also maintains hard upper and lower bounds on the values for each state and action so as to direct the rollouts; actions are chosen greedily according to the upper bound on the value, and the next state is chosen such that it is the most uncertain of the available candidates (according to the difference in its upper and lower bounds).
 

@@ -1,8 +1,39 @@
 In this chapter I present experiments performed by myself and others, examining the \alg{BOSS} and \alg{BFS3} algorithms, and comparing them to other algorithms in the same spirit.
 
+\subsection{Parameter choice}
+
+In each experiment, several values for each of the relevant parameters were used, but sometimes only the best were recorded.
+
+\subsubsection{RMAX}
+
+Many algorithms are fairly robust with respect to their parameters.
+For instance, the \alg{RMAX}~\cite{brafman02} family of algorithms~\cite{jong07,asmuth08} have one important parameter, $m$, indicating how many samples of a state-action pair are necessary before that pair is considered \emph{known}. For a given environment, there is usually a value $m^*$ for which any $m\geq m^*$ will cause the \alg{RMAX} agent to find the optimal policy --- it needs at least $m^*$ samples of some set of key state-action pairs in order to know how to behave well. Increasing $m$ beyond $m^*$ will result in a longer period of sup-optimal behavior at the beginning of the trial. Decreasing $m$ will result in potentially defective policies built on too little information.
+
+\subsubsection{BOSS}
+
+\alg{BOSS}, or \alg{Best Of Sampled Set}, is discussed in detail in Chapter~\ref{sec:boss}.
+
+The \alg{BOSS} algorithm has two important parameters: $K$ indicates how many posterior samples should be used when constructing a hyper-model, and $B$ indicates how many samples of a particular state-action pair are required before that pair becomes \emph{known}, triggering the creation of a new hyper-model.
+
+Unlike \alg{RMAX}, where a too-small value for $m$ can effect reliably poor policies, the $B$ parameter for \alg{BOSS} is much more robust. When a state-action pair becomes \emph{known} according to \alg{RMAX}, the agent decides that there is nothing more to be learned for that pair and may avoid it entirely in the future. Without enough samples, its initial estimation of that state-action's dynamics may be flawed. With \alg{BOSS}, the agent is not drawn specifically to \emph{unknown} state-action pairss, but instead is drawn to state-action pairs whose dynamics have high variance in the posterior. So, even if $B$ is set to something too small, \alg{BOSS} can still be drawn to the \emph{unknown} parts of the MDP because posterior variance and $B$ are uncorrelated. This is not to say that \alg{BOSS} will work equally well with any value for $B$ --- if $B$ is too small, the posterior might still have too much variance when the last hyper-model is constructed, causing it to have exploration built in to its final policy (leading to sub-optimal steps for eternity). If $B$ is too large, the effect is similar to that seen with \alg{RMAX}: the exploration phase at the beginning of the experiment may last longer than it needs to, leading to a lower cumulative reward.
+
+The $K$ parameter for \alg{BOSS}, which chooses how many posterior samples to use when creating the hyper-model, must fall within a certain range to be useful. In the limit, as $K\rightarrow\infty$, \alg{BOSS} will break down completely. Since \alg{BOSS} views all of the posterior samples going into a particular hyper-model equally, sampling an infinite amount of them will lead to a hyper-model that is completely uninformed by the agent's experience. Conditioning on observations causes the posterior to change shape, making some models more likely than others. If too many samples are taken, then the models that would normally be skipped, due to low probability, will still be represented in the hyper-model. In practice, the value of $K$ that becomes ``too big'' is terrifically large, since with enough data the posterior can become extremely peaked.
+
+Setting $K$ too low can cause underexploration. If there are not enough posterior samples used to create the hyper-model, it is possible that some state-action pairs will have a \emph{pessimistic} value in the hyper-model, causing the agent to sometimes actively avoid high-value states when they are \emph{unknown}, since they will have high variance in the posterior.
+
+\subsubsection{BFS3}
+
+\alg{BFS3}, or \alg{Bayesian Forward Search Sparse Sampling}, is discussed in detail in Chapter~\ref{sec:bfs3}. It leans heavily on \alg{FSSS}, which is discussed in detail in Chapter~\ref{sec:relmbbrl}, Section~\ref{sec:rel:fsss}.
+
+The choice of parameters for \alg{BFS3} is, for the most part, pre-specified by \alg{FSSS}. Since, for \alg{BFS3} to be effective, \alg{FSSS} must be able to find the value of any state in the ``true'' model, \alg{BFS3} must choose parameters that are at least as conservative as those needed by \alg{FSSS}.
+
+The only parameter that will often need to be \emph{more} conservative than the one requred by \alg{FSSS} is the $C$: how many times \alg{FSSS} will try each action from each visited state when doing simulations. There are MDPs for which \alg{FSSS} only needs $C=1$ try of each action for each visited state --- if a model is deterministic, then the action will give the same results each time. However, a deterministic ``true'' MDP does not induce a deterministic BAMDP: there can still be stochasticity in the posterior until the agent has observed a transition from the state being visited by \alg{FSSS}. As a result, $C$ must often be higher than the minimum needed for \alg{FSSS} to be effective for the ``true'' model.
+
+Increasing parameters to values above what are needed will not harm the performance of the agent with respect to sample complexity, but can have an effect on the computation required. Computation will grow linearly with the number of trajectories run, the number of times that \alg{FSSS} will try each action for each visited state, and the search depth.
+
 \section{BOSS experiments}
 
-The algorithm \alg{BOSS}, or \alg{Best Of Sampled Set}, is discussed in detail in Chapter~\ref{sec:boss}.
+This section lists experiments in which the \alg{BOSS} algorithm was compared to other model-based algorithms.
 
 \subsection{Chain}
 
@@ -61,7 +92,8 @@ discount factor of $\gamma=0.95$ and \alg{BOSS} used $B=10$ and $K=5$.
 \alg{BEETLE} &  3650 & 3648 & 1754 \\
 \alg{exploit} & 3642 & 3257 & 3078 \\
 \alg{BOSS} &        3657 & 3651 & 3003 \\%  & 3611\\
-\alg{RAM-RMAX} &    3404 & 3383 & 2810
+\alg{RAM-RMAX} &    3404 & 3383 & 2810 \\
+\alg{Bayesian-DP} &&&3158
 \end{tabular}
 }
 \end{table}
@@ -69,16 +101,13 @@ discount factor of $\gamma=0.95$ and \alg{BOSS} used $B=10$ and $K=5$.
 All algorithms perform very well in the \prior{Tied} scenario (although
 \alg{RAM-RMAX} is a bit slower as it needs to estimate the slip probability
 very accurately to avoid finding a suboptimal policy).
-Poupart~et~al.~(2006) point out that \alg{BEETLE} (a belief-lookahead
-approach) \note{pp:It is not a belief lookahead technique.  It simply performs approximate dynamic programming.} is more effective than \alg{exploit} (an undirected approach) in
+Poupart~et~al.~(2006) point out that \alg{BEETLE} is more effective than \alg{exploit} (an undirected approach) in
 the \prior{Semi} scenario, which requires more careful exploration to perform
-well.  In \prior{Full}, however, \alg{BEETLE} falls behind because the larger
-parameter space makes it difficult for it to complete its
-belief-lookahead analysis. \note{pp: No the reason is that the value function is difficult to approximate in high dimensional spaces.}
+well.  In \prior{Full}, however, \alg{BEETLE} falls behind because the value function is difficult to approximate in high dimensional spaces. 
 
 \alg{BOSS}, on the other hand, explores as effectively as \alg{BEETLE} in \prior{Semi},
-but is also effective in \prior{Full}.  A similarly positive result (3158) in \prior{Full} is
-obtained by \alg{Bayesian DP}~\cite{strens00}. \note{pp: Can you include the results in the table.}
+but is also effective in \prior{Full}.  A similarly positive result in \prior{Full} is
+obtained by \alg{Bayesian DP}~\cite{strens00}.
 
 \subsubsection{BAYESIAN MODELING OF STATE CLUSTERS}
 \label{s:cluster}
@@ -402,6 +431,53 @@ Paint/Polish with 4 cans. Using the \prior{Factored-Object} prior allows \alg{BF
 We ran \alg{BFS3} on \env{Wumpus World} with a search depth of $15$, and varied the number of trajectories per step. Agents with $500$, $1000$, and $5000$ trajectories per step averaged $0.267$, $0.358$ and $0.499$ cumulative reward, respectively. Averages were taken over $1000$ attempts. We compare this to a variance-based reward bonus strategy~\cite{sorg10} which, when tuned, averaged $0.508$.
 
 That \alg{BFS3} performs better in \env{Wumpus World} as the computation budget is increased supports our argument that the algorithm has a \emph{computational resources} knob which, when tuned higher, causes the agent's behavior to get closer to being Bayes-optimal at the cost of decision-making speed.
+
+\subsection{Texture World}
+
+\env{Texture World} is a simple grid world with four actions: \emph{north}, \emph{east}, \emph{south}, and \emph{west}. From any state, the action attempts to move the agent one cell in the desired direction, as long as the destination is in the grid and is not a \emph{black} cell.
+
+If the destination is valid, the action succeeds with some probability that is a function of the agent's current cell. Cells can be \emph{red}, \emph{green}, \emph{blue}, or \emph{black}. If the world is textured, then all cells of the same color have the same success probability, drawn from the Beta distribution. If the world is not textured, then each state has its own success probability, independently sampled from the Beta distribution. The world is either textured or not textured with some probability.
+
+The exact model is described by a generative process,
+\begin{eqnarray}
+T &\sim& \mbox{Flip}(p),\\
+\rho_s &=&
+\left\{\begin{array}{lll}
+ \theta^C_{C_s}&:&T = \mbox{heads} \\
+ \theta^S_s&:&T = \mbox{tails} ,
+\end{array}\right.\\
+\theta^C_c &\sim& \dBeta(\alpha,\beta),\\
+\theta^S_s &\sim& \dBeta(\alpha,\beta),
+\end{eqnarray}
+where $\rho_s$ is the success probability in state $s$, $C_s$ is the color of state $s$, $p$ is the prior likelihood that the world is textured, and $\alpha$ and $\beta$ are hyperparameters for the Beta prior. The colors themselves are not part of the prior - the agent knows the color of every state.
+
+The \alg{BOSS} and \alg{BFS3} algorithms were both run in \env{Texture World}, and the results are shown in Figure~\ref{sec:expr:tworld-reward} and in Figure~\ref{sec:expr:tworld-time}.
+
+
+\begin{figure}
+\vskip 0.2in
+\begin{center}
+\centerline{\includegraphics[width=4in]{tworld-reward}}
+\caption{
+\env{Texture World} on a 5x5 grid. \alg{BOSS} was run with $K=5$ and $B=10$. \alg{BFS3} was run with a search depth of $D=10$, search breadth of $C=5$, and at most $1500$ trajectories per step. In this instance, the actual world had textured set to ``true'', and the red, green and blue state's chances of success were $0.2, 0.3, 0.8$, respectively. The agents were only given the coloring of each state and the prior; they had to decide for themselves whether or not textures mattered.
+}
+\label{sec:expr:tworld-reward}
+\end{center}
+\vskip -0.2in
+\end{figure} 
+
+
+\begin{figure}
+\vskip 0.2in
+\begin{center}
+\centerline{\includegraphics[width=4in]{tworld-time}}
+\caption{
+\env{Texture World} on a 5x5 grid. \alg{BOSS}, because it was able to use value iteration for planning in the small world, was very efficient with its computation when compared to \alg{BFS3}, which by definition uses the conservative tree-search planner \alg{FSSS}.
+}
+\label{sec:expr:tworld-time}
+\end{center}
+\vskip -0.2in
+\end{figure} 
 
 %
 \ifperchapterbib%
