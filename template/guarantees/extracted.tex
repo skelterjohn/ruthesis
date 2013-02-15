@@ -1,0 +1,28 @@
+\documentclass[11pt]{amsart}
+\usepackage{geometry}
+\geometry{letterpaper}
+
+\usepackage{../../../mlapa}
+
+\input{../header/packages}
+\DeclareGraphicsRule{.tif}{png}{.png}{`convert #1 `dirname #1`/`basename #1 .tif`.png}
+
+\title{extracted chapter from thesis: guarantees}
+\author{John Asmuth}
+
+\begin{document}
+\maketitle
+
+\newif{\ifperchapterbib}
+\newif{\ifendbib}
+\endbibtrue
+
+\input{../header/commands}
+
+\input{chapter}%
+
+
+\bibliographystyle{../../../mlapa}
+\bibliography{../bibliography/asmuth}
+
+\end{document}  
