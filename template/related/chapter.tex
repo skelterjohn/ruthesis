@@ -2,12 +2,54 @@
 In this chapter, we discuss important related work that will influence, directly and indirectly, later contributions. \note{Can you say briefly what dimensions of relatedness you are using?  How are you deciding what to include and what not to include?} Along with algorithms of general interest to a student of model-based Bayesian reinforcement-learning, there are
 \reply{
 \begin{itemize}
+\item existing model-based RL algorithms used for comparisons in Chapter~\ref{sec:experiments}~\cite{brafman03,jong07}.
 \item algorithms that make use of a flexible prior~\cite{strens00,wang05,sorg10,araya2012near},
 \item model-based Bayesian RL algorithms with PAC-BAMDP guarantees~\cite{kolter09,sorg10,araya2012near}.
 \item the \alg{FSSS} algorithm, which is used as a building block in Chapter~\ref{sec:relmbbrl}, and several other tree search planners~\cite{kearns99,kocsis06}.
-\item existing model-based RL algorithms used for comparisons in Chapter~\ref{sec:experiments}~\cite{brafman03,jong07}.
 \end{itemize}
 }
+\section{RMAX}
+
+The \alg{RMAX}~\cite{brafman03} algorithm is a simple and robust method to balance exploration and exploitation in the reinforcement-learning setting. The original algorithm addresses only discrete state- and action-spaces, but the ideas apply more generally~\cite{nouri09,jong07}.
+
+To effectively use \alg{RMAX}, the agent designer needs a metric to determine whether or not a particular state-action pair is \emph{known}. In the discrete state and action case, the agent can count how many times it has tried a given action pair. If that number exceeds a predetermined threshold, the given pair is \emph{known}. Otherwise, it is \emph{unknown}.
+
+To guide the \alg{RMAX} agent, a model is constructed from the agent's observations, with unknown state-action pairs transitioning only to a nirvana state, or a state with the highest possible value. Known states have the transition dynamics given by the MLE. The agent then acts greedily according to this model.
+
+Clamping unknown states at very high value will draw the agent towards these states if there is any chance that visiting those states is the optimal thing to do.
+
+Because the model maintained by \alg{RMAX} is accurate (when the state is known), optimistic (when the state is unknown) and there is a bounded number of times that the agent can be surprised (because there is a finite number of state-action pairs that can become known), the authors were able to show that the algorithm is PAC-MDP. That is, it will make only a small number of suboptimal decisions over the course of its lifetime.
+
+\subsection{Potential-based RMAX}
+
+As it stands, the \alg{RMAX} algorithm cannot make use of any prior knowledge. All unknown states are assigned the highest possible value, and the agent is drawn to each of them in a way that depends only on how quickly it can reach them.
+
+The \alg{Potential-based shaping RMAX}~\cite{asmuth08} algorithm addresses this deficiency by incorporating a potential function $\phi(s)$. The agent will perform well if this potential function is \emph{admissible}. That is, $\forall_s ~ V(s) \leq \phi(s)$; the potential function's value for a given state must never be less than the true value for the state. This admissibility requirement is common in heuristic-based search algorithms, such as A*~\cite{russell1995artificial}.
+
+This algorithm works by assigning unknown states a value of $\phi(s)$, rather than $\Vmax$, the highest possible value. Setting $\phi(s)=\Vmax$ is allowed, since $\Vmax$ automatically satisfies the admissibility requirement, but lower values result in faster convergence.
+
+On the downside, this algorithm is very conservative, like the rest of the \alg{RMAX} family. Requiring a fixed number of visits to a state-action pair before it becomes known means a lot of exploration steps if the heuristic is too optimistic, some of which might not be necessary in practice.
+
+
+\subsection{Fitted-RMAX}
+
+Instance-based methods represent functions by a set of examples and use a predefined similarity function to generalize to novel inputs. In the reinforcement-learning setting, an instance is the tuple $\langle s, a, s', r \rangle$, or the combination of state, action, next state and reward.
+
+Over the course of its lifetime, the agent gathers a large set of $\langle s, a\rangle \rightarrow \langle s', r \rangle$ mappings. When it observes a new state-action pair, it can compare it to those it has seen in the past and predict a next-state and reward that fits with those already observed.
+
+The ideas behind instance-based model learning can be combined with the \alg{RMAX} algorithm to create {\bf Fitted-RMAX}~\cite{jong07}. {\bf Fitted-RMAX} uses a Gaussian kernel to determine the similarity between two states:
+\begin{eqnarray}
+d(s_1,s_2)&=&\exp\left(\frac{-||s_1 - s_2||^2_2}{b}\right),
+\end{eqnarray}
+where $b$ is a \emph{width} parameter used to determine how much distance affects the similarity between two states.
+
+The possible outcomes and rewards are then taken from a weighted average of those seen before when taking the action in question, where each possibility $\langle o_i, r_i \rangle$ is weighted by $d(s_t, s_i)$, where $s_t$ is the state from which the agent is considering taking an action.
+
+Since this algorithm is applied in continuous domains, the standard definition of knownness that uses visit counts cannot be used.  Instead, a distance metric needs to be incorporated. The sum of the similarity scores between the state in question and all previously experienced states is taken and compared to a threshold $B$, over which the knownness metric declares a state to be known. Unknown states are then assigned maximum value, according to the rules of \alg{RMAX}.
+
+Once a policy is found for the {\bf Fitted-RMAX} model, using some existing continuous-state planner, the agent will be drawn to explore states that are either unknown or have high value, like the original \alg{RMAX} on which it is based.
+
+
 
 \section{Bayes-adaptive Markov decision processes}
 
@@ -27,7 +69,7 @@ The likelihood of the transition in the BAMDP is taken by integrating out the un
 
 By constructing the BAMDP according to Equation~\ref{rel:bamdp:prob}, the optimal policy is identical to the Bayes-optimal policy in the learning setting. This fact follows because the succession of transition likelihoods is exactly the same as those indicated in the Bayesian model\footnote{See Chapter~\ref{sec:intro}, Section~\ref{sec:intro:bayes-opt} for a full explanation of why optimal in the BAMDP is Bayes-optimal while learning the MDP.}. \note{ml: Can you sum up why that's important? jta: added footnote}
 
-Unfortunately, the BAMDP has potentially an infinite number of states, since each possible history maps to a different belief state. However, as the number of observations from a particular concrete state and using a particular action grows large, the distribution over the possible next concrete states converges, allowing a clever algorithm designer to collect large sets of belief states together into equivalent classes, for the purposes of planning. \note{Has that been done?  What is the status of this algorithm?} \reply{ml: An easy way to make this optimization is to not adjust the posterior when an observation is made for a particular state-action pair $s,a$ if that pair has been observed at least $B$ times in the past, for a choice of $B$ sensible for the prior. This trick can be used in any model-based Bayesian RL algorithm that uses a posterior sampler.}
+Unfortunately, the BAMDP has potentially an infinite number of states, since each possible history maps to a different belief state. However, as the number of observations from a particular concrete state and using a particular action grows large, the distribution over the possible next concrete states converges, allowing a clever algorithm designer to collect large sets of belief states together into equivalent classes, for the purposes of planning. \note{Has that been done?  What is the status of this algorithm?} \reply{An easy way to make this optimization is to not adjust the posterior when an observation is made for a particular state-action pair $s,a$ if that pair has been observed at least $B$ times in the past, for a choice of $B$ sensible for the prior. This trick can be used in any model-based Bayesian RL algorithm that uses a posterior sampler.}
 
 
 
@@ -78,10 +120,28 @@ E[T] &=& \sum_{T=0}^{M-1} P(T) T,\\
 Returning to the $N$-chain MDP, if we consider $p=(\frac 1 N)^\frac L K$ and $M=\frac L K$, the expected number of samples drawn (coins flipped) in a failure will be $E[T]+1$ (the first sample is what we choose to think of as heads - the others then need to match it). With an expected $(\frac 1 N)^{-\frac L K}$ failures before the first success, that gives an expected 
 \begin{eqnarray}
 \lefteqn{E[\mbox{number of failures}]E[\mbox{steps per failure}]+E[\mbox{steps per success}]}\\
- &=& \left(\frac 1 N\right)^{-\frac L K} (p(1-p)^2(1-p^M)-Mp^{M}+1) + \frac L K
+ &=& \left(\frac 1 N\right)^{-\frac L K} (p(1-p)^2(1-p^{\frac L K})-{\frac L K}p^{\frac L K}+1) + \frac L K
 \end{eqnarray} samples before reaching the end of one of the chains. Ignoring the smaller pieces, the $(\frac 1 N)^{-\frac L K}$ factor is exponential with respect to the length of the chain.
 
 Spacing out the MDP samples temporally allows the agent to visit at least one unknown (and optimistically sampled) state every $K$ steps (assuming that any of the unknown states are optimistic in the posterior sample for those $K$ steps). Choosing a $K$ that is at least as great as the expected number of steps to get from any state in the MDP to any other state in the MDP alleviates the thrashing issue seen in the $N$-chains example above. With $K=L$, $(\frac 1 N)^{-\frac L K} \rightarrow N$, and there is no exponential factor in the expectation.
+
+
+\section{Multi-Task Reinforcement Learning}
+
+Multi-Task Reinforcement Learning, or MTRL, considers the scenario where an agent is given a sequence of environments, each of which is drawn i.i.d. from some prior distribution. The \alg{Hierarchical Bayesian MTRL} algorithm~\cite{wilson07}, or \alg{HBMTRL} assumes the following generative process for creating sequences of MDPs:
+\begin{eqnarray}
+\label{sec:rel:hbmtrl}
+C &\sim& \mbox{CRP}(\alpha),\\
+\theta_c &\sim& \Theta,\\
+m_i &\sim& \phi(\theta_{C_i}),
+\end{eqnarray}
+where $\alpha$ is the CRP concentration parameter, $C$ is the assignment of MDPs to ``classes'' with $C_i$ being the class of MDP $m_i$, $\Theta$ is a distribution over MDP hyper-parameters, $\theta_c$ is the hyper-parameter used for MDPs in class $c$, $\phi$ is some distribution over MDPs parameterized by an instance of $\theta$, and $m_i$ is an MDP in the sequence.
+
+With this approach, the hyper-parameter distribution $\Theta$ and the MDP distribution family $\phi$ can be anything - the algorithm itself has no constraints on what may be used.
+
+The process \alg{HBMTRL} uses is similar to that of \alg{Bayesian DP}~\cite{strens00}, except that instead of sampling a single model from the posterior and acting according to its optimal policy, \alg{HBMTRL} will sample several MDPs and discard all of them but the most likely.
+
+This algorithm is an example of using model-based Bayesian RL for transfer learning, where experience gathered in one MDP can inform an agent's behavior in another. The model in Equation~\ref{sec:rel:hbmtrl} indicates that all MDPs can be divided into groups which share some basic qualities, represented by $\theta_i$.
 
 
 \section{BEETLE}
@@ -120,64 +180,21 @@ where $n(s,a)$ is the number of times that action $a$ has been taken from state 
 
 This algorithm is similar to Model-Based Interval Estimation (\alg{MBIE})~\cite{strehl06}, except that \alg{MBIE} uses the square root of the visit count in its bonus. This difference causes the bonus term used by \alg{MBIE} to decay more slowly resulting in slower convergence, and that extra conservativity allows \alg{MBIE} to be a PAC-MDP algorithm, where \alg{BEB} is a near Bayes-optimal algorithm when the prior is the flat Dirichlet multinomial.
 
-\subsection{Variance-based BEB}
+\section{Variance-based BEB}
 
-note{try to avoid having only one subsection.  reorganize?}
+Variance-based {\bf BEB}, or {\bf vBEB}~\cite{sorg10}, is an adaptation of {\bf BEB} that can make use of a flexible prior, or one that is not restricted to the flat Dirichlet multinomial.
 
-Variance-based {\bf BEB}, or {\bf VBEB}~\cite{sorg10}, is an adaptation of {\bf BEB} that can make use of a general prior, one that is not restricted to the flat Dirichlet multinomial.
-
-The {\bf VBEB} algorithm provides a framework for analyzing an arbitrary prior, and creating a bonus term based on the posterior variance for the state-action pair to which the bonus will be applied. In this framework, the flat Dirichlet multinomial gets the bonus term from Equation~\ref{eqn:rel:beb:bonus}, and it will be different for other priors.
-
-\note{can it handle all possible priors?  does it have guarantees?}
-
+The {\bf vBEB} algorithm provides a framework for analyzing an arbitrary prior, and creating a bonus term based on the posterior variance for the state-action pair to which the bonus will be applied. In this framework, the flat Dirichlet multinomial gets the bonus term from Equation~\ref{eqn:rel:beb:bonus}, and it will be different for other priors. With the proper bonus selected, \alg{vBEB} is a PAC-BAMDP algorithm.
 
 \section{BOLT}
 
-This is a paper that should be included~\cite{araya2012near}. \note{write this section}
-
-
-\section{RMAX}
-
-The \alg{RMAX}~\cite{brafman03} algorithm is a simple and robust method to balance exploration and exploitation in the reinforcement-learning setting. The original algorithm addresses only discrete state- and action-spaces, but the ideas apply more generally~\cite{nouri09,jong07}.
-
-To effectively use \alg{RMAX}, the agent designer needs a metric to determine whether or not a particular state-action pair is \emph{known}. In the discrete state and action case, the agent can count how many times it has tried a given action pair. If that number exceeds a predetermined threshold, the given pair is \emph{known}. Otherwise, it is \emph{unknown}.
-
-To guide the \alg{RMAX} agent, a model is constructed from the agent's observations, with unknown state-action pairs transitioning only to a nirvana state, or a state with the highest possible value. Known states have the transition dynamics given by the MLE. The agent then acts greedily according to this model.
-
-Clamping unknown states at very high value will draw the agent towards these states if there is any chance that visiting those states is the optimal thing to do.
-
-Because the model maintained by \alg{RMAX} is accurate (when the state is known), optimistic (when the state is unknown) and there is a bounded number of times that the agent can be surprised (because there is a finite number of state-action pairs that can become known), the authors were able to show that the algorithm is PAC-MDP. That is, it will make only a small number of suboptimal decisions over the course of its lifetime.
-
-\subsection{Potential-based RMAX}
-
-\note{try to avoid lone subsections}
-
-As it stands, the \alg{RMAX} algorithm cannot make use of any prior knowledge. All unknown states are assigned the highest possible value, and the agent is drawn to each of them in a way that depends only on how quickly it can reach them.
-
-The \alg{Potential-based shaping RMAX}~\cite{asmuth08} algorithm addresses this deficiency by incorporating a potential function $\phi(s)$. The agent will perform well if this potential function is \emph{admissible}. That is, $\forall_s ~ V(s) \leq \phi(s)$; the potential function's value for a given state must never be less than the true value for the state. This admissibility requirement is common in heuristic-based search algorithms, such as A*~\cite{russell1995artificial}.
-
-This algorithm works by assigning unknown states a value of $\phi(s)$, rather than $\Vmax$, the highest possible value. Setting $\phi(s)=\Vmax$ is allowed, since $\Vmax$ automatically satisfies the admissibility requirement, but lower values result in faster convergence.
-
-On the downside, this algorithm is very conservative, like the rest of the \alg{RMAX} family. Requiring a fixed number of visits to a state-action pair before it becomes known means a lot of exploration steps if the heuristic is too optimistic, some of which might not be necessary in practice.
-
-
-\subsection{Fitted-RMAX}
-
-Instance-based methods represent functions by a set of examples and use a predefined similarity function to generalize to novel inputs. In the reinforcement-learning setting, an instance is the tuple $\langle s, a, s', r \rangle$, or the combination of state, action, next state and reward.
-
-Over the course of its lifetime, the agent gathers a large set of $\langle s, a\rangle \rightarrow \langle s', r \rangle$ mappings. When it observes a new state-action pair, it can compare it to those it has seen in the past and predict a next-state and reward that fits with those already observed.
-
-The ideas behind instance-based model learning can be combined with the \alg{RMAX} algorithm to create {\bf Fitted-RMAX}~\cite{jong07}. {\bf Fitted-RMAX} uses a Gaussian kernel to determine the similarity between two states:
+\alg{Bayesian Optimistic Local Transition}, or \alg{BOLT}~\cite{araya2012near}, makes use of a flexible prior and has PAC-BAMDP guarantees. \alg{BOLT} works by constructing a hyper-model $m'$ from the posterior $\phi|h$, where $\phi$ is the model prior and $h$ is the agent's current history at the time that the hyper-model is constructed. This hyper-model has the same state-space, but an expanded action-space $A' = S \times A$. The transition function of the hyper-model is
 \begin{eqnarray}
-d(s_1,s_2)&=&\exp\left(\frac{-||s_1 - s_2||^2_2}{b}\right),
+T_{m'}(s'|s, \langle \hat s, a \rangle) &=& \int_m \phi(m|h+(s,a,\hat s)^{(\eta)})T_m(s'|s,a) d m,
 \end{eqnarray}
-where $b$ is a \emph{width} parameter used to determine how much distance affects the similarity between two states.
+where $h+(s,a,\hat s)^{(\eta)}$ is the current history augmented with $\eta$ extra hypothetical transitions from $s$ to $\hat s$ when choosing action $a$. As a result, $\phi(m|h+(s,a,\hat s)^{(\eta)})$ is the hypothetical posterior likelihood of $m$ after the extra transitions.
 
-The possible outcomes and rewards are then taken from a weighted average of those seen before when taking the action in question, where each possibility $\langle o_i, r_i \rangle$ is weighted by $d(s_t, s_i)$, where $s_t$ is the state from which the agent is considering taking an action.
-
-Since this algorithm is applied in continuous domains, the standard definition of knownness that uses visit counts cannot be used.  Instead, a distance metric needs to be incorporated. The sum of the similarity scores between the state in question and all previously experienced states is taken and compared to a threshold $B$, over which the knownness metric declares a state to be known. Unknown states are then assigned maximum value, according to the rules of \alg{RMAX}.
-
-Once a policy is found for the {\bf Fitted-RMAX} model, using some existing continuous-state planner, the agent will be drawn to explore states that are either unknown or have high value, like the original \alg{RMAX} on which it is based.
+This hyper-model provides a way to introduce optimism into the partially known or unknown MDP. At least one of the states must have high value (otherwise, why bother?), and for a transition function that still has variance in the posterior, creating an action with a higher likelihood of ending up in that state allows the planner to pick and choose which states visits. Unlike \alg{RMAX}- and \alg{BEB}-based algorithms, which augment rewards for state-action pairs with poorly known transition functions, \alg{BOLT} changes the transition function itself to reflect that uncertainty.
 
 
 
