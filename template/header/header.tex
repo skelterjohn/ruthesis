@@ -105,20 +105,6 @@
 \providecommand{\safetitletext}{\titletext}
 \newcommand{\authortext}{John Asmuth}
 
-%% A handy way of formatting the author's notes-to-self (or -to-advisor) is
-%% to separate them from the surrounding text with an icon, and to insert an
-%% icon in the margin to make the note obvious.
-%% When the document is being compiled for an audience that doesn't need the
-%% notes, they can all be turned off with the notes boolean (set in the root
-%% document), rather than having to do search-and-delete (or -and-comment).
-\ifnotes
-\providecommand{\note}[1]
-    {\marginpar{\LARGE ZZZ}[{\bf zzz} #1]}
-\else
-%% If notes are turned off, just define an empty notes command.
-\providecommand{\note}[1]
-    {}
-\fi % notes
 
 %% In addition to this header file, each chapter can define a header with
 %% commands/packages specific to that chapter.  That way, when a chapter is

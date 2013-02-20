@@ -70,5 +70,18 @@
 \providecommand{\note}[1]
     {\marginpar{\LARGE zzz}\textcolor{red}{$\ll${\bf #1}$\gg$}}
 
+
+
 \providecommand{\reply}[1]
     {\marginpar{\LARGE new}\textcolor{blue}{#1}}
+
+
+\newtheorem{defn}{Definition}
+
+\newtheorem{thm}{Theorem}
+\newtheorem{lemma}{Lemma}
+
+\newenvironment{proofsketch}{\trivlist\item[]\emph{Proof Sketch}:}%
+{\unskip\nobreak\hskip 1em plus 1fil\nobreak$\Box$
+\parfillskip=0pt%
+\endtrivlist}

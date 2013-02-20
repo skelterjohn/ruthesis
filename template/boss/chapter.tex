@@ -131,52 +131,123 @@ For any prior that supports (has a non-zero probability for) the true model, the
 
 A discovery event is then defined to occur on the $B^{\mbox{th}}$ transition from a particular state-action pair.
 
-\section{Proof of optimality}
-\label{boss:alg:disc:proof}
+\section{Theoretical guarantees}
 
-In this section, I present a proof that \alg{BOSS} is PAC-BAMDP in discrete state and action spaces, as long as certain assumptions hold. That is, with probability $1-\delta$, the agent will choose $\epsilon$-Bayes optimal actions for all but a number of steps that is polynomial with the number of states $S$, the number of actions $A$, the prior's accuracy threshold $B$, $\epsilon$ and $\delta$.
+The \alg{BOSS} algorithm is both PAC-MDP and PAC-BAMDP, under slightly different conditions. The difference between optimal and Bayes-optimal, in this situation, hinges on whether the ``true'' MDP is \bed-learnable or the prior itself is \bed-learnable. This distinction is important to make, since with an especially strange prior, the posterior may not converge to something close to the true model after a reasonable number of observations. With this strange prior, \alg{BOSS} will still be PAC-BAMDP, but the Bayes-optimal and optimal policies may differ significantly.
 
-This proof's assumptions follow.
+\subsection{Definitions}
+
+This section formalizes some definitions that are important for understanding the theorem and proof that follows.
+
+\begin{defn}
+\label{sec:boss:defn:local-opt}
+
+An MDP $\hat m$ is said to be \emph{locally $\epsilon$-optimistic} at state-action pair $s, a$, with respect to a baseline MDP $m_0$, if
+\begin{eqnarray}
+R(s,a)+\gamma \sum_{s'} T_{\hat m}(s'|s,a) V_{m_0}(s')
+&\geq&R(s,a)+\gamma \sum_{s'} T_{m_0}(s'|s,a) V_{m_0}(s') - \epsilon,
+\end{eqnarray}
+where $R$ is the reward function for MDP $m$, where $T_{m}$ is the transition function for MDP $m$, $V_m(s)$ is the value of state $s$ in MDP $m$.
+
+That is, if the agent is able to take a single step from $s,a$ in $\hat m$, and then must exist in $m_0$ after that, it is able to achieve an expected discounted return that is at least as high as that that it could achieve starting in $m_0$, less $\epsilon$.
+
+\end{defn}
+
+\begin{defn}
+\label{sec:boss:defn:local-acc}
+
+An MDP $\hat m$ is said to be \emph{locally $\epsilon$-accurate} at state-action pair $s, a$, with respect to a baseline MDP $m_0$, if
+\begin{eqnarray}
+||T_{\hat m}(\cdot|s,a) - T_{m_0}(\cdot|s,a)||_\infty &\leq& \epsilon,
+\end{eqnarray}
+or
+\begin{eqnarray}
+\forall_{s'} \left|T_{\hat m}(s'|s,a) - T_{m_0}(s'|s,a)\right| &\leq& \epsilon,
+\end{eqnarray}
+where $T_{m}$ is the transition function for MDP $m$.
+
+That is, the likelihood of ending up in state $s'$ while in $\hat m$ is $\epsilon$-close to that likelihood in $m$.
+
+With high probability, when the prior is \bed-learnable, posterior samples will be locally $\epsilon$-accurate for state-action pairs with at least $B$ observed transitions.
+
+\end{defn}
+
+\begin{defn}
+
+A state-action pair that has been tried at least $B$ times is declared to be \emph{known}. If a state-action pair has been tried fewer than $B$ times, it is declared to be \emph{unknown}.
+
+If there is any action $a$ for which the state-action pair $s,a$ is \emph{unknown}, the state $s$ is also \emph{unknown}. A state is \emph{known} if all state-action pairs including it are \emph{known}.
+\end{defn}
+
+\subsection{BOSS is PAC-BAMDP}
+\label{sec:boss:pac-bamdp:provisions}
+
+\begin{thm}
+\label{sec:boss:thm:pac-bamdp}
+The \alg{BOSS} algorithm, when provided with
+\begin{enumerate}
+\item a prior MDP distribution $\phi$,
+\item a knownness threshold $B$,
+\item a samples-per-hyper-model count $K$,
+\end{enumerate}
+and if
 \begin{enumerate}
 \item
-\label{boss:alg:disc:proof:cond:opt}
-Optimism: the values for each \emph{unknown} state-action pair in every hyper-model are \emph{locally optimistic}, as described in Section~\ref{boss:alg:disc:proof:opt}.
-\item
-\label{boss:alg:disc:proof:cond:acc}
-Accuracy: the hyper-models have accurate dynamics for any state-action pair that is \emph{known}.
+\label{sec:boss:pac-bamdp:cond-bed}
+the prior $\phi$ is \bed-learnable with $B$, $\epsilon_0$, and$\delta_0$,
+\item 
+\label{sec:boss:pac-bamdp:cond-local-opt}
+a posterior sample is \emph{locally $\epsilon_0$-optimistic} for any arbitrary state-action pair with probability at least $1-\delta_1$,
+\end{enumerate}
+where $\epsilon_0 = \epsilon(1-\gamma)/(\gamma\Vmax)$, $\delta_0 = \delta/(2KS^2A^2)$, and $\delta_1 = \left(\delta/(2S^2A^2)\right)^{1/K}$,
+will, with probability at least $1-\delta$, perform $\epsilon$-Bayes-optimal actions for all but a number of steps that is polynomial with $\epsilon$, $\delta$, $\gamma$, $B$, the number of states $S$, and the number of actions $A$. That is, \alg{BOSS} will be PAC-BAMDP.
+\end{thm}
+
+\section{Proof of PAC-BAMDP}
+\label{sec:boss:pac-bamdp}
+
+In this section, I present a proof that \alg{BOSS} is PAC-BAMDP in discrete state and action spaces, as long as certain assumptions hold. That is, with probability $1-\delta$, the agent will choose $\epsilon$-Bayes-optimal actions for all but a number of steps that is polynomial with the number of states $S$, the number of actions $A$, the prior's accuracy threshold $B$, $\epsilon$ and $\delta$.
+
+This proof depends on three main assumptions, which follow.
+\begin{enumerate}
 \item
 \label{boss:alg:disc:proof:cond:disc}
 Bounded discoveries: the agent will visit \emph{unknown} state-action pairs only a small number of times.
+\item
+\label{boss:alg:disc:proof:cond:opt}
+Optimism: the values for each \emph{unknown} state in every hyper-model are optimistic.
+\item
+\label{boss:alg:disc:proof:cond:acc}
+Accuracy: the hyper-models have accurate dynamics for any state-action pair that is \emph{known}.
 \end{enumerate}
 
-These three assumptions are sufficient to ensure, with high probability, a polynomial number of sub-optimal steps in the BAMDP~\cite{lihong09abr2}.
+These three assumptions are sufficient to ensure, with high probability, a number of sub-optimal steps in the BAMDP that is polynomial~\cite{lihong09pacmdp}.
 
-We define a state-action pair to be \emph{known} if it has been attempted at least $B$ times. This allows the agent to have gathered enough experience to be able to accurately simulate its dynamics, according to Assumption~\ref{boss:alg:disc:proof:cond:acc}. If the state-action pair has been attempted fewer than $B$ times, not enough observations have been made to make an accurate prediction, and it is considered \emph{unknown}.
+We declare a state-action pair to be \emph{known} if it has been attempted at least $B$ times. This number of attempts allows the agent to have gathered enough experience to be able to accurately simulate its dynamics, according to Assumption~\ref{boss:alg:disc:proof:cond:acc}. If the state-action pair has been attempted fewer than $B$ times, not enough observations have been made to make an accurate prediction, and it is considered \emph{unknown}. \emph{Unknown} states have optimistic values in the hypermodels, incentivizing the agent to visit them and learn about their dynamics.
 
-\subsection{Local optimism}
+In particular, because the prior $\phi$ must be \bed-learnable, we can assume that the dynamics for that state-action pair in a posterior sample are $\epsilon_0$-accurate, for $\epsilon_0 = \epsilon(1-\gamma)/(\gamma\Vmax)$, with high probability. If all state-action pairs in a sampled MDP have $\epsilon_0$-accurate dynamics with respect to the ``true'' MDP, then the simulation lemma~\cite{kearns98,lihong09simlemma} tells us that the optimal policy for that sampled MDP will be an $\epsilon$-optimal policy in the ``true'' MDP.
+
+
+
+\subsection{Bounded discoveries}
+
+Since a new hyper-model is constructed each time a discovery event occurs, it is important to bound the number of possible discovery events. In the discrete state and discrete action case, a discovery event occurs when a particular state-action pair is tried for the $B^{\mbox{th}}$ time. Since the number of unique state-action pairs is $S A$, there may only be $S A$ discovery events. As a result, the maximum number of hyper-models created over the agent's lifetime is $S A$.
+
+\subsection{Optimism}
 \label{boss:alg:disc:proof:opt}
-This proof depends on a specific kind of optimism in posterior samples. A posterior sample is said to be a \emph{locally optimistic} sample for a particular state-action pair if, with the dynamics for all other state-action pairs set to match the true model, the sampled model's Q--value for that state-action pair exceeds its Q--value in the true model. Equivalently,
-\begin{eqnarray}
-\label{boss:alg:disc:proof:opt}\hat Q(s,a) &\geq& Q^*(s, a) - \epsilon_0\\
-R_m(s,a) +\gamma \sum_{s'} P_m(s'|s,a) V^*(s')&\geq&R(s,a) +\gamma \sum_{s'} P(s'|s,a) V^*(s') - \epsilon_0,
-\end{eqnarray}
-where $Q^*$ and $V^*$ are the true model's Q--value and Value functions, $P$ and $R$ are the true model's transition probability and reward functions, $P_m$ and $R_m$ are the sampled model's transition probability and reward functions, $\epsilon_0$ is the required accuracy bound, and $\hat Q$ is the resulting Q--value for a state using the sampled models dynamics for one step from the indicated state-action pair and the true model's dynamics afterwards.
 
-We will formalize Assumption~\ref{boss:alg:disc:proof:cond:opt} as follows:
-\begin{itemize}
-\item for any unknown state-action pair, an MDP sampled from the posterior is \emph{locally optimistic} with probability at least $1-\delta/(2 K S^2 A^2)$.
-\end{itemize}
+This proof depends on hyper-models being $\epsilon$-optimistic for all \emph{unknown} state-action pairs. Intuitively, if \emph{unknown} state-action pairs are optimistic, the agent has incentive to visit them and try them, eventually causing them to become \emph{known}.
 
-The result of applying a union bound across all $K$ samples and across all $S A$ state-ation pairs to this assumption is that, for a given set of $K$ posterior samples, with probability~$1-\delta_0/(S A)$, for each state-action pair, at least one of the $K$ samples is \emph{locally optimistic}.
+Condition~\ref{sec:boss:pac-bamdp:cond-local-opt} in Section~\ref{sec:boss:pac-bamdp:provisions} lets us know that for an arbitrary \emph{unknown} state-action pair, an MDP $\hat m\sim \phi|h$ sampled from the posterior will be \emph{locally $\epsilon_0$-optimistic} for that pair with probability at least $1-\delta_1$.
 
-\subsubsection{Sub-model optimism lemma}
+To have an optimistic hyper-model, it is sufficient that for each of the $S A$ state-action pairs $s,a$, at least one of the $K$ samples is \emph{locally $\epsilon_0$-optimistic} at $s,a$. Alternatively, that each state $s$ has a \emph{locally $\epsilon_0$-optimistic} version of each action.
 
-\label{sec:boss:sub-model-optimism}
+First we show that the construction of a hyper-model retains all the optimism of its sub-models.
 
-\note{need a better name for this lemma}
-
+\begin{lemma}
 A hypermodel $m'$ has a value for each state at least as high as the value of that state in each of the sub-models $m_1, m_2, ..., m_k$.
-
+\end{lemma}
+\begin{proof}
 By augmenting the set of actions available for a single state, we can only raise the value of that state since the value, defined by the Bellman equation,
 \begin{eqnarray}
 V^*_m(s) &=& \max_{a \in A} R_m(s,a)+\gamma \sum_{s'} T_m(s'|s,a)V^*_m(s'),
@@ -187,50 +258,142 @@ V^*_m(s_0) &=& \max_{a \in A \bigcup A'} R_m(s_0,a)+\gamma \sum_{s'} T_m(s'|s_0,
 V^*_m(s\neq s_0) &=& \max_{a \in A} R_m(s,a)+\gamma \sum_{s'} T_m(s'|s,a)V^*_m(s').
 \end{eqnarray}
 Since $V^*_m(s_0)$ can only have increased, we  know the values of every other state can also only have increased, since $T_m(s'|s,a) \geq 0$ is a non-negative probability. It follows that as we augment the actions available to each state individually, the values of any state in the new MDP must be at least as great as they were before those actions were added. Because $m'$ is an augmentation for each of the sub-models $m_i$, it follows that $\forall_{i,s} V_{m'}(s) \geq V_{m_i}(s)$.
+\end{proof}
 
-\subsubsection{Hyper-model global optimism lemma}
-\label{boss:alg:disc:proof:opt}
+Given that we know hyper-models retain all the optimism of their sub-models, we can bound the likelihood that a hyper-model is optimistic everywhere.
 
-For any given state-action pair, if a model sampled from the posterior is locally optimistic with probability at least $1-\delta/(2 K S^2 A^2)$, then a hyper-model created from the combination of $K$ models independently sampled from the posterior is optimistic for each state-action pair with probability at least $1-\delta/(2 S A)$ (this follows from the union bound). 
+\begin{lemma}
+\label{sec:boss:global-opt}
+For any given \emph{unknown} state-action pair, if a model sampled from the posterior is locally optimistic with probability at least $1-\delta_1$, then a hyper-model created from the combination of $K$ models sampled independently from the posterior is optimistic for every \emph{unknown} state-action pair with probability at least $1-SA{\delta_1}^K$. 
+\end{lemma}
+\begin{proof}
+For a specific \emph{unknown} state-action pair $s,a$, the probability that one of the $K$ samples used to construct a single hyper-model is \emph{locally $\epsilon_0$-optimistic} is the complement of the probability that none of them are.
 
-\subsection{Bounded discoveries}
+The probability that a single sample is not {locally $\epsilon_0$-optimistic} is at most $\delta_1$.
 
-Since a new hyper-model is constructed each time a discovery event occurs, it is important to bound the number of possible discovery events. In the discrete state and discrete action case, a discovery event occurs when a particular state-action pair is tried for the $B^{\mbox{th}}$ time. Since the number of unique state-action pairs is $S A$, there may only be $S A$ discovery events. As a result, the maximum number of hyper-models created over the agent's lifetime is $S A$.
+Since these $K$ samples are conditioned on the same data and are independent with respect to that data, the probability of $K$ samples not being {locally $\epsilon_0$-optimistic} is at most ${\delta_1}^K$.
 
-\subsubsection{Life-time hyper-model optimism lemma}
+The probability that at least one of them is {locally $\epsilon_0$-optimistic} is then no less than the compliment, $1-{\delta_1}^K$.
 
-If each constructed hyper-model is optimistic for all state-action pairs with probability at least $1-\delta/(2 S A)$, then all $S A$ hyper-models will be optimistic with probability $1-\delta/2$ (this follows from the union bound).
+These $K$ sub-models are composed into a single hyper-model, which needs to be {locally $\epsilon_0$-optimistic} for all \emph{unknown} state-action pairs. At any given point, there are no more than $S A$ \emph{unknown} state-action pairs. The union bound tells us that the likelihood of this being the case for a particular hyper-model is at least $1-SA{\delta_1}^K$.
+\end{proof}
 
-\subsection{Local Accuracy}
+Since the number of hyper-models created over the lifetime of the agent is bounded, so is the likelihood that they are all optimistic.
 
-A posterior sample is said to be \emph{locally accurate} for a particular state-action pair if the sample's dynamics for that state-action pair are close to the true model's. Formally,
-$$\forall_{s'} ~ |P_m(s'|s,a)-P(s'|s,a)| \leq \epsilon_0.$$
+\begin{lemma}
+\label{sec:boss:lemma:opt}
+If a posterior sample is \emph{locally $\epsilon_0$-optimistic} for any given \emph{unknown} state-action pair with probability at least $1-\delta_1$, then all \emph{unknown} states in all hyper-models will have \emph{locally $\epsilon_0$-optimistic} version of each action with probability at least $1-\delta/2$.
+\end{lemma}
+\begin{proof}
+Since an agent may experience at most $S A$ discovery events and, therefore, construct at most $S A$ hyper-models, and the likelihood that a particular hyper-model is optimistic is at least $1-SA{\delta_1}^K$, the union bound tells us that the likelihood of each of them being {locally $\epsilon_0$-optimistic} for all of their \emph{unknown} state-action pairs is at least $1-S^2A^2{\delta_1}^K$.
 
-The \alg{BOSS} algorithm, by itself, cannot guarantee model accuracy; as a Bayesian algorithm, it is dependent on the prior chosen for the agent. We can formalize Assumption~\ref{boss:alg:disc:proof:cond:acc} as follows:
-\begin{itemize}
-\item for any known state-action pair, an MDP sampled from the posterior is \emph{locally accurate} at that state-action pair with probability at least $1-\delta/(2 K S^2 A^2)$.
-\end{itemize}
+Since $\delta_1 = \left(\delta/(2S^2A^2)\right)^{1/K}$, all hyper-models will be {locally $\epsilon_0$-optimistic} for all of their \emph{unknown} state-action pairs with probability at least $1-\delta/2$.
+\end{proof}
+%This proof depends on a specific kind of optimism in posterior samples. A posterior sample is said to be a \emph{locally optimistic} sample for a particular state-action pair if, with the dynamics for all other state-action pairs set to match the true model, the sampled model's Q--value for that state-action pair exceeds its Q--value in the true model. Equivalently,
+%\begin{eqnarray}
+%\label{boss:alg:disc:proof:opt}\hat Q(s,a) &\geq& Q^*(s, a) - \epsilon_0\\
+%R_m(s,a) +\gamma \sum_{s'} P_m(s'|s,a) V^*(s')&\geq&R(s,a) +\gamma \sum_{s'} P(s'|s,a) V^*(s') - \epsilon_0,
+%\end{eqnarray}
+%where $Q^*$ and $V^*$ are the true model's Q--value and Value functions, $P$ and $R$ are the true model's transition probability and reward functions, $P_m$ and $R_m$ are the sampled model's transition probability and reward functions, $\epsilon_0$ is the required accuracy bound, and $\hat Q$ is the resulting Q--value for a state using the sampled models dynamics for one step from the indicated state-action pair and the true model's dynamics afterwards.
+
+%We will formalize Assumption~\ref{boss:alg:disc:proof:cond:opt} as follows:
+%\begin{itemize}
+%\item for any unknown state-action pair, an MDP sampled from the posterior is \emph{locally optimistic} with probability at least $1-\delta/(2 K S^2 A^2)$.
+%\end{itemize}
+
+%The result of applying a union bound across all $K$ samples and across all $S A$ state-ation pairs to this assumption is that, for a given set of $K$ posterior samples, with probability~$1-\delta_0/(S A)$, for each state-action pair, at least one of the $K$ samples is \emph{locally optimistic}.
 
 
-\alg{BOSS} will sample $K$ models from the posterior whenever there is a discovery event. Since a given state-action pair can only be discovered once, that limits the total number of discovery events to $S A$, and therefore the total number of sampled models may not exceed $K S A$. For \alg{BOSS} to work correctly, every state-action pair must have accurate dynamics in every model sampled when the state-action pair is ``known'' --- this is an event with some likelihood (there is a chance that the sample is accurate for the state-action pair in question). An upper bound on the number of ``known'' state-action pairs in a particular sample, which need to all have accurate dynamics, is $S A$ (all possible pairs).
+%\subsubsection{Life-time hyper-model optimism lemma}
 
-Since there are $K S A$ samples, each of which must have at most $S A$ stochastic events come out favorably, there are at most $K S^2 A^2$ events that need to succeed. Lemma~\ref{boss:alg:disc:proof:acc} follows after applying the union bound.
+%If each constructed hyper-model is optimistic for all state-action pairs with probability at least $1-\delta/(2 S A)$, then all $S A$ hyper-models will be optimistic with probability $1-\delta/2$ (this follows from the union bound).
 
-\subsubsection{Hyper-model accuracy lemma}
-\label{boss:alg:disc:proof:acc}
-If the likelihood for a known state-action pair to be \emph{locally accurate} in a posterior sample is at least $1-\delta/(2 K S^2 A^2)$, then the likelihood that all known state-action pairs have \emph{locally accurate} dynamics in all posterior samples is at least $1-\delta/2$.
+\subsection{Accuracy}
 
-\note{pp: Format this as a lemma in latex.}
+The \alg{BOSS} algorithm, by itself, cannot guarantee model accuracy; as a Bayesian algorithm, it is dependent on the prior chosen for the agent.
+
+\begin{lemma}
+\label{sec:boss:lemma:acc}
+If the prior $\phi$ is \bed-learnable, then every \emph{known} state-action pair in every hyper-model will be \emph{locally $\epsilon_0$-accurate} with probability at least $1-\delta/2$.
+\end{lemma}
+
+\begin{proof}
+Since $\phi$ is \bed-learnable, for a given posterior sample, a particular \emph{known} state-action pair will be \emph{locally $\epsilon_0$-accurate} with probability at least $1-\delta_0$.
+
+Since the number of constructed hyper-models is at most $S A$, and $K$ posterior samples go into each hyper-model, \emph{known} state-action pairs have to be \emph{locally $\epsilon_0$-accurate} in at most $K S A$ posterior samples. Each time the posterior is sampled, there are at most $S A$ \emph{known} state-action pairs, so the number of times a \emph{known} state-action pair needs a \emph{locally $\epsilon_0$-accurate} is at most $K S^2 A^2$.
+
+Since $\delta_0 = \delta/(2KS^2A^2)$, applying the union bound tells us that the likelihood that all \emph{known} state-action pairs in all posterior samples are \emph{locally $\epsilon_0$-accurate} is at least $1-KS^2A^2\delta_0 = 1-\delta/2$.
+
+\end{proof}
+
+%We declare MDP $\hat m$ to be \emph{locally $\epsilon$-accurate} to another MDP $m_0$ for a particular state-action pair $s, a$ if
+%\begin{eqnarray}
+%\forall_{s'} ~ |P_{\hat m}(s'|s,a)-P_{m_0}(s'|s,a)| &\leq& \epsilon.
+%\end{eqnarray}
+
+%Let $m_0 \sim \phi$ be the true model for the environment, sampled from the prior. Let $h \sim m_0$ be the observations made by the agent, which are sampled from the MDP $m_0$, and have at least $B$ transitions from each known state-action pair. The distribution $\phi|h$ is then the posterior model distribution.
+
+%We can formalize Assumption~\ref{boss:alg:disc:proof:cond:acc} as follows:
+%\begin{itemize}
+%\item for any known state-action pair, an MDP $\hat m \sim \phi|h$ is \emph{locally $\epsilon_0$-accurate} at that state-action pair with probability at least $1-\delta_0$.
+%\end{itemize}
+%This assumption is true because of Provision~\ref{sec:boss:pac-bamdp:cond-bed} in Section~\ref{sec:boss:pac-bamdp:provisions}: the prior $\phi$ is \bed-learnable, with accuracy $\epsilon_0 = \epsilon(1-\gamma)/(\gamma\Vmax)$ and success probability $1-\delta_0 = 1-\delta/(2 K S^2 A^2)$.
+
+%\alg{BOSS} will sample $K$ models from the posterior whenever there is a discovery event. Since a given state-action pair can only be discovered once, that limits the total number of discovery events to $S A$, and therefore the total number of sampled models may not exceed $K S A$. For \alg{BOSS} to work correctly, every state-action pair must have accurate dynamics in every model sampled when the state-action pair is ``known'' --- this is an event with some likelihood (there is a chance that the sample is accurate for the state-action pair in question). An upper bound on the number of ``known'' state-action pairs in a particular sample, which need to all have accurate dynamics, is $S A$ (all possible pairs).
+
+%Since there are $K S A$ samples, each of which must have at most $S A$ stochastic events come out favorably, there are at most $K S^2 A^2$ events that need to succeed. Lemma~\ref{boss:alg:disc:proof:acc} follows after applying the union bound.
+
+%\subsubsection{Hyper-model accuracy lemma}
+%\label{boss:alg:disc:proof:acc}
+
+%Lemma: If the likelihood for a known state-action pair to be \emph{locally $\epsilon_0$-accurate} in a posterior sample is at least $1-\delta/(2 K S^2 A^2)$, then the likelihood that all known state-action pairs have \emph{locally $\epsilon_0$-accurate} dynamics in all posterior samples is at least $1-\delta/2$.
+
+
 
 \subsection{Probability of success}
 
-Since the statement in Lemma~\ref{boss:alg:disc:proof:opt} holds with probability $1-\delta/2$ and the statement in Lemma~\ref{boss:alg:disc:proof:acc} holds with probability $1-\delta/2$, applying the union bound shows that they will both hold simultaneously with probability at least $1-\delta$.
+Now that optimism and accuracy are guaranteed with high probability, they can also be jointly guaranteed.
 
-The three assumptions described at the beginning of Section~\ref{boss:alg:disc:proof} must hold true for \alg{BOSS} to act $\epsilon$-optimally for all but a polynomial number of steps with probability $1-\delta$. 
+\begin{lemma}
+\label{sec:boss:lemma:opt-acc}
+In every posterior sample, all \emph{unknown} state-action pairs are \emph{locallaly $\epsilon_0$-optimistic}, and all \emph{unknown} state-action pairs are \emph{locallaly $\epsilon_0$-accurate}, with probability at least $1-\delta$.
+\end{lemma}
+
+\begin{proof}
+Lemma~\ref{sec:boss:lemma:opt} shows that all \emph{unknown} state-action pairs are \emph{locallaly $\epsilon_0$-optimistic} in all samples with probability at least $1-\delta/2$.
+
+Lemma~\ref{sec:boss:lemma:acc} shows that all \emph{known} state-action pairs are \emph{locallaly $\epsilon_0$-accurate} in all samples with probability at least $1-\delta/2$.
+
+Applying the union bound to these two events holds both true with probability at least $1-\delta$.
+\end{proof}
+
+%Since the statement in Lemma~\ref{boss:alg:disc:proof:opt} holds with probability $1-\delta/2$ and the statement in Lemma~\ref{boss:alg:disc:proof:acc} holds with probability $1-\delta/2$, applying the union bound shows that they will both hold simultaneously with probability at least $1-\delta$.
+
+%The three assumptions described at the beginning of Section~\ref{boss:alg:disc:proof} must hold true for \alg{BOSS} to act $\epsilon$-optimally for all but a polynomial number of steps with probability $1-\delta$. 
+
+\subsection{Approximately Bayes-optimal with high probability}
+
+Lemma~\ref{sec:boss:lemma:opt-acc} shows that all \emph{known} state-action pairs will be \emph{locally $\epsilon_0$-accurate} and all \emph{unknown} state-action pairs will be \emph{locally $\epsilon_0$-optimistic}, in all hyper-models over the course of the agent's lifetime, with high probability. These facts, along with the bounded number of discoveries possible, allow us to connect \alg{BOSS} to a general PAC-MDP guarantee~\cite{lihong09pacmdp}.
+
+\begin{lemma}
+With probability at least $1-\delta$, the \alg{BOSS} algorithm will choose $\epsilon$-optimal actions in the BAMDP
+\end{lemma}
 
 %\note{Need to cite the simulation lemma, at least.  Locally accurate dynamics implies near optimal reward.  Oh, also the explore-expliot lemma---if you have a mix of accurate state-action pairs and optimistic state-action pairs, then you either obtain near optimal reward *or* encounter an unknown/optimistic state-action pair.}
 
 %\note{Needs some additional discussion.  What's the relationship between this theorem and the one in the paper?  The conditions you mention are actually assumptions.  Are they likely to be satisfied?  Can you provide examples where they are/aren't so that the reader will get a feel for what they mean?  Otherwise, the tone and content seem on target.}
+
+\section{Proof of PAC-MDP}
+
+By strengthening one of the conditions for PAC-BAMDP, we can ensure that \alg{BOSS} is also PAC-MDP.
+
+Condition~\ref{sec:boss:pac-bamdp:cond-bed} in Section~\ref{sec:boss:pac-bamdp} stated that the prior $\phi$ must be \bed-learnable. That is, if the ``true'' model $m_0$ is sampled from $\phi$, and some observations are made from acting in $m_0$, then with high probability a posterior sample will have accurate dynamics for all state-action pairs with enough example transitions.
+
+To create a PAC-MDP version, we replace that condition with a new one:
+\begin{enumerate}
+\item The ``true'' model, $m_0$, is \bed-learnable with the prior $\phi$.
+\end{enumerate}
+After this, the proof is identical. The distinction lies in that $m_0$ is no longer necessarily tied to the prior in any way --- it is only important that the prior can be used to \emph{learn} $m_0$.
 
 %
 \ifperchapterbib%

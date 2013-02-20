@@ -139,9 +139,11 @@ where $\alpha$ is the CRP concentration parameter, $C$ is the assignment of MDPs
 
 With this approach, the hyper-parameter distribution $\Theta$ and the MDP distribution family $\phi$ can be anything - the algorithm itself has no constraints on what may be used.
 
-The process \alg{HBMTRL} uses is similar to that of \alg{Bayesian DP}~\cite{strens00}, except that instead of sampling a single model from the posterior and acting according to its optimal policy, \alg{HBMTRL} will sample several MDPs and discard all of them but the most likely.
+The process \alg{HBMTRL} uses is similar to that of \alg{Bayesian DP}~\cite{strens00}, except that instead of sampling a single model from the posterior and acting according to its optimal policy, \alg{HBMTRL} will sample several MDPs and discard all of them but the most likely. This has the effect of sampling from a peaked version of the posterior, where the likelihood ratios between two samples grows more severe. As the size of the sample set grows, the resulting version of the posterior becomes more and more peaked. In the limit as the size of sample set goes to infinity, this process will choose the mode of the posterior.
 
 This algorithm is an example of using model-based Bayesian RL for transfer learning, where experience gathered in one MDP can inform an agent's behavior in another. The model in Equation~\ref{sec:rel:hbmtrl} indicates that all MDPs can be divided into groups which share some basic qualities, represented by $\theta_i$.
+
+In the parlance of this dissertation, \alg{HBMTRL} is both an algorithm and a family of priors. The algorithm is the process of sampling from the peaked posterior and acting according to the optimal policy of the result. The family of priors is those priors that use a Dirichlet process mixture model to sample MDPs.
 
 
 \section{BEETLE}
@@ -272,6 +274,29 @@ Choosing actions by identifying the optimal action in posterior samples allows B
 This algorithm has some efficiency issues; it requires sampling from the posterior and solving for the true optimal action in the inner loop. Both posterior sampling and model solving can often be computationally difficult. There are cases where the posterior sampling and model solving can be done efficiently, for instance when the model is a bandit problem with the Beta prior~\cite{wang05}.
 
 
+\section{Bayesian approaches to acting in POMDPs}
+
+The majority of the work discussed in this dissertation focuses on using priors to help an agent explore and exploit an MDP. Even if that MDP is not known exactly, the agent gets to know exactly what states it visits, and is guaranteed that $T(s'|s,a)$ is constant, if sometimes unknown, throughout the course of the experiment.
+
+When trying to act in a POMDP, the agent only gets to oberve a signal, which is drawn from a distribution and conditioned on the unobserved state. This disconnect makes learning much more difficult.
+
+The use of Bayesian non-parametric techniques is a proven method for learning latent variables in a variety of situations~\cite{blei2003latent,Blei04hierarchicaltopic,asmuth09}, and it makes sense to use them for POMDP inference as well.
+
+The Infinite POMDP~\cite{doshi2009infinite} is an example of using non-parametric techniques for POMDP inference. It uses a CRP to assign specific observations to states, and a Stick-breaking process to create next-state distributions. The CRP and the Stick-breaking process are both different formulations of the Dirichlet process, so the result is a hierarchical Dirichlet process.
+
+The model can be written as follows:
+\begin{eqnarray}
+T_{s,a} &\sim& \mbox{Stick}(\lambda),\\
+\Omega_{s,a} &\sim& H,\\
+R_{s,a} &\sim& H_R,\\
+S &\sim& \mbox{CRP}(\alpha),\\
+s_{t+1} &\sim& T_{S_t,a},\\
+o_t &\sim& \Omega_{S_t,a},
+\end{eqnarray}
+where $\lambda$ and $\alpha$ are concentration hyper-parameters to their respective distributions, $H$ is a prior over different observation distributions, $\Omega_{s,a}$ is the observation distribution when in hidden state $s$ and performing action $a$, $R{s,a}$ is the reward distribution when in hidden state $s$ and performing action $a$, $H_R$ is a prior over different reward distributions, $S$ is the assignment of time-steps to states (so at time $t$, the agent was in state $S_t$), and $o_t$ is the observation made after taking an action during time-step $t$.
+
+This model is very general, and allows the agent designers choose a model for the observations and rewards that fits with the domain they are working with.
+
 \section{Upper Confidence bounds on Trees}
 
 \begin{algorithm}[tb]
@@ -333,23 +358,22 @@ The values $U_d(s)$ and $L_d(s)$ are the upper and lower bounds on the value of 
 The fact that \alg{FSSS} maintains upper bounds on the values for each state it considers will be useful when an optimistic planner is required. It is often the case that accurately finding (or even approximating) a state's value will end up being very difficult or intractable. \alg{FSSS} promises that, with high probability, the true value for a given state will be somewhere in between $U(s)$ and $L(s)$. Maintaining this range of uncertainty can be useful for the algorithm employing \alg{FSSS} as a planning algorithm, as we shall see in Chapter~\ref{chap:bfs3}.
 
 \begin{algorithm}[tb]
-	\caption{$\mbox{FSSS}(s, d, t, M)$}
+	\caption{$\mbox{FSSS}(s, d, C, t, M)$}
 	\label{alg:fs3}
-	\KwIn{state $s$, max depth $d$, \#trajectories $t$, MDP $M$}
+	\KwIn{state $s$, max depth $d$, \#trajectories $t$, branching factor $C$, MDP $M$}
 	\KwOut{estimated value for state $s$}
 
 	\For {$t$ times} {
-		$\mbox{FSSS-Rollout}(s, d, 0, M)$
+		$\mbox{FSSS-Rollout}(s, d, C, 0, M)$
 	}
-	{\bf ZZZ pp: Should FSSS-Rollout assign Ud(s,a)?}
-	$\hat V(s) \leftarrow \max_a U_d(s, a)$\\
+	$\hat V(s) \leftarrow U_d(s)$\\
 	\Return $\hat V(s)$
 \end{algorithm}
 
 \begin{algorithm}[tb]
-	\caption{$\mbox{FSSS-Rollout}(s, d, l, M)$}
+	\caption{$\mbox{FSSS-Rollout}(s, d, C, l, M)$}
 	\label{alg:fs3-rollout}
-	\KwIn{state $s$, max depth $d$, current depth $l$, MDP $M$}
+	\KwIn{state $s$, max depth $d$, branching factor $C$, current depth $l$, MDP $M$}
 	\If{$\mbox{Terminal}(s)$}{
 		$U_d(s)=L_d(s)=0$\\
 		\Return
@@ -360,8 +384,7 @@ The fact that \alg{FSSS} maintains upper bounds on the values for each state it 
 	\If {$\neg\mbox{Visited}_d(s)$} {
 		$\mbox{Visited}_d(s) \leftarrow \mbox{true}$\\
 		\ForEach {$a \in A$} {
-			$R_d(s,a),\mbox{Count}_d(s,a,s'),\mbox{Children}_d(s,a)$\\
-			\ \ \ $\leftarrow 0, 0, \{\}$\\
+			$R_d(s,a),\mbox{Count}_d(s,a,s'),\mbox{Children}_d(s,a) \leftarrow 0, 0, \{\}$\\
 			\For {$C$ times} {
 				$s', r \sim T_M(s, a), R_M(s,a)$ \\
 				$\mbox{Count}_d(s,a,s') \leftarrow \mbox{Count}_d(s,a,s') + 1$ \\
@@ -381,8 +404,21 @@ The fact that \alg{FSSS} maintains upper bounds on the values for each state it 
 	\Return
 \end{algorithm}
 
-
-\note{I'd like to see Finale's stuff cited (as it is a prominent example of combining Bayesian priors with sequential decision making).  Even more importantly, the Oregon work should be described, as it is one of the only other approaches that uses general priors in RL.}
+\begin{algorithm}[tb]
+	\caption{$\mbox{Bellman-backup}(s, d)$}
+	\label{alg:bellman}
+	\KwIn{state $s$, depth $d$}
+	\ForEach {$a \in A$} {
+		$U_d(s,a), L_d(s,a) \leftarrow 0, 0$\\
+		\ForEach {$s' \in \mbox{Children}_d(s,a)$} {
+			$U_d(s,a) \leftarrow U_d(s,a) + \frac 1 C \gamma U_{d+1}(s')$\\
+			$L_d(s,a) \leftarrow L_d(s,a) + \frac 1 C \gamma L_{d+1}(s')$
+		}
+	}
+	$U_d(s) = \argmax_a U_d(s,a)$\\
+	$L_d(s) = \argmax_a L_d(s,a)$\\
+	\Return
+\end{algorithm}
 
 %
 \ifperchapterbib%

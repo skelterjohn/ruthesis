@@ -1,28 +1,19 @@
 \documentclass[11pt]{amsart}
-\usepackage{geometry}                % See geometry.pdf to learn the layout options. There are lots.
-\geometry{letterpaper}                   % ... or a4paper or a5paper or ... 
-%\geometry{landscape}                % Activate for for rotated page geometry
-%\usepackage[parfill]{parskip}    % Activate to begin paragraphs with an empty line rather than an indent
-\usepackage{graphicx}
+\usepackage{geometry}
+\geometry{letterpaper}
+
 \usepackage{../../../mlapa}
-\usepackage{amssymb}
-\usepackage{epstopdf}
-\usepackage[noend]{algorithm2e}
-\usepackage{paralist}
+
+\input{../header/packages}
 \DeclareGraphicsRule{.tif}{png}{.png}{`convert #1 `dirname #1`/`basename #1 .tif`.png}
 
-\providecommand{\note}[1]
-    {\marginpar{\LARGE ZZZ}[{\bf zzz} #1]}
-
-\title{extracted chapter from thesis: conclusion}
+\title{extracted chapter from thesis: Conclusion}
 \author{John Asmuth}
-%\date{}                                           % Activate to display a given date or no date
 
 \begin{document}
 \maketitle
 
 \newif{\ifperchapterbib}
-%\perchapterbibtrue
 \newif{\ifendbib}
 \endbibtrue
 
