@@ -9,7 +9,7 @@ The \alg{BOSS} algorithm, outlined in Figure~\ref{boss:fig:boss-general}, makes 
 
 \begin{figure}[t]
 \begin{center}
-\includegraphics[width=0.75\linewidth]{boss-loop}
+\includegraphics[width=0.75\linewidth]{figures/boss-loop}
 \caption{\alg{BOSS} combines observations made from the environment with the prior to create sets of posterior samples. These posterior samples are combined to create a hyper-model, which the planner takes as its model. The policy on the hyper-model is used in the environment.}
 \label{boss:fig:boss-general}
 \end{center}
@@ -17,7 +17,7 @@ The \alg{BOSS} algorithm, outlined in Figure~\ref{boss:fig:boss-general}, makes 
 
 \begin{figure}[t]
 \begin{center}
-\includegraphics[width=0.9\linewidth]{hypermodels}
+\includegraphics[width=0.9\linewidth]{figures/hypermodels}
 \caption{A posterior is created by combining the prior with observations made by the agent in the environment. Every the agent decides that it has learned something, several samples are drawn from the posterior and combined to create the hyper-model.}
 \label{sec:boss:hyper-model}
 \end{center}
@@ -63,8 +63,8 @@ Although the planner is decoupled from \alg{BOSS}'s operation, it is tied closel
 
 \begin{figure}[t]
 \begin{center}
-\includegraphics[width=0.45\linewidth]{hyper-construction}
-\includegraphics[width=0.45\linewidth]{hyper-stoch-construction}
+\includegraphics[width=0.45\linewidth]{figures/hyper-construction}
+\includegraphics[width=0.45\linewidth]{figures/hyper-stoch-construction}
 \caption{\textbf{Left:} Two samples with the same state- and action-spaces and deterministic dynamics are combined to create a hyper-model. Every action from each of the provided models exists in the hyper-model. \textbf{Right:} Two stochastic MDPs are combined to create a stochastic hyper-model MDP. In both cases, solid lines in the hyper-model indicate the action was taken from the upper sample, and dashed lines indicate the action was taken from the lower sample.}
 \label{sec:boss:hyper-model-creation}
 \end{center}
@@ -73,7 +73,7 @@ Although the planner is decoupled from \alg{BOSS}'s operation, it is tied closel
 
 \begin{figure}[t]
 \begin{center}
-\includegraphics[width=0.75\linewidth]{hyper-to-real}
+\includegraphics[width=0.75\linewidth]{figures/hyper-to-real}
 \caption{The agent chooses the best policy in the hyper-model, and then translates it back into the environment it is dealing with. In this case, it chose the red dashed action (perhaps $s_2$ has a higher value than $s_3$. In the real environment, the agent will choose the red action, hoping that it has a high probability of resulting in transition to $s_3$. If this hope is in error, the agent may try the action several times and eventually have enough evidence to effect a change in the posterior.}
 \label{sec:boss:hyper-to-real}
 \end{center}
