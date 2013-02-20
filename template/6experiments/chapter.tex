@@ -145,7 +145,7 @@ sweeps with 50 sweeps between each sample.
 
 \begin{figure}[t]
 \begin{center}
-\includegraphics[width=1.0\linewidth]{2x3}
+\includegraphics[width=1.0\linewidth]{figures/2x3}
 \caption{Varying priors and environments in \alg{BOSS}.}
 \label{f:twobythree}
 \end{center}
@@ -184,7 +184,7 @@ statistically significant (t-test $p<0.001$).
 
 \begin{figure}[t]
 \begin{center}
-\includegraphics[width=1.0\linewidth]{varyk}
+\includegraphics[width=1.0\linewidth]{figures/varyk}
 \caption{Varying $K$ in \alg{BOSS}.}
 \label{f:varyk}
 \end{center}
@@ -208,7 +208,7 @@ its optimal policy, is illustrated in Figure~\ref{f:marble}.
 
 \begin{figure}[t]
 \begin{center}
-\includegraphics[width=0.6\linewidth]{6x6_maze}
+\includegraphics[width=0.6\linewidth]{figures/6x6_maze}
 \caption{Diagram of \env{6x6 Marble Maze}.}
 \label{f:marble}
 \end{center}
@@ -243,7 +243,7 @@ worked.
 
 \begin{figure}[t]
 \begin{center}
-\includegraphics[width=1.0\linewidth]{marblemaze}
+\includegraphics[width=1.0\linewidth]{figures/marblemaze}
 \caption{Comparison of algorithms on \env{6x6 Marble Maze}.}
 \label{f:marblegraph}
 \end{center}
@@ -280,7 +280,7 @@ obtain high reward in this grid.  The sampled models used around
 \begin{figure}[t]
 \vskip 0.2in
 \begin{center}
-\centerline{\includegraphics[width=\columnwidth]{puddleFigure}}
+\centerline{\includegraphics[width=\columnwidth]{figures/puddleFigure}}
 \caption{Typical of \alg{RMAX}-family algorithms, \alg{Fitted-RMAX} is very conservative, getting data from every portion of the environment before acting greedily. \prior{ROAR}/\alg{BOSS}, since it depends on posterior variance for exploration, starts getting good reward sooner, even though occasionally it decides to learn about a new area for a short period. \alg{Fitted-RMAX} was run with width parameter $b=0.05$ and knownness threshold $B=2$. \prior{ROAR}/\alg{BOSS} was run with $K=1, B=5, \alpha=1.0,\Psi_{\mbox s}=0.1I, m_{\mbox s}=200, \Psi_{\mbox o}=0.01I, m_{\mbox o}=30, \Psi_{\mbox r}=1.0I,m_{\mbox r}=20,\alpha_\phi=0.001,\beta_\phi=0.01$. Averaged over $20$ runs.}
 \label{fig:puddle}
 \end{center}
@@ -306,7 +306,7 @@ Ignoring the noise in the \env{Bridge of Fire} will cause the agent to prefer \e
 \begin{figure}[t]
 \vskip 0.2in
 \begin{center}
-\centerline{\includegraphics[width=\columnwidth]{bridgeFigure}}
+\centerline{\includegraphics[width=\columnwidth]{figures/bridgeFigure}}
 \caption{Algorithms using \prior{ROAR} and \alg{CORL} were able to learn the \env{Bridge of Fire} domain effectively. \alg{Fitted-RMAX} makes assumptions that do not hold in this environment, and does poorly as a result. \alg{CORL} was run with knownness threshold $B=20$, and was given the correct type function. \alg{Fitted-RMAX} was run with width parameter $b=0.5$ and knownness threshold $B=3$. \prior{ROAR}/\alg{BOSS} was run with $K=1, B=10, \alpha=1.0,\Psi_{\mbox s}=0.1I, m_{\mbox s}=3, \Psi_{\mbox o}=0.1I, m_{\mbox o}=3, \Psi_{\mbox r}=1.0I,m_{\mbox r}=50,\alpha_\phi=0.001,\beta_\phi=0.005$. Averaged over $20$ runs.}
 \label{fig:bridge}
 \end{center}
@@ -325,7 +325,7 @@ The correct model in \env{Mind the Gap} is very difficult to learn. Using \prior
 \begin{figure}[t]
 \vskip 0.2in
 \begin{center}
-\centerline{\includegraphics[width=\columnwidth]{bridge2Figure}}
+\centerline{\includegraphics[width=\columnwidth]{figures/bridge2Figure}}
 \caption{Because of its unimodal outcome distribution assumption, \alg{CORL} was unable to perform well in the \env{Mind the Gap} domain, even after being told the correct ``type'' function for clustering. \prior{ROAR}, with no prior knowledge of the clustering, is able to effectively learn multi-modal distributions and can correctly model this environment's dynamics. \alg{CORL} was run with knownness threshold $B=10$. \prior{ROAR} algorithms were run with $B=1, \alpha=1.0,\Psi_{\mbox s}=0.5I, m_{\mbox s}=10, \Psi_{\mbox o}=0.1I, m_{\mbox o}=3, \Psi_{\mbox r}=0.01I,m_{\mbox r}=50,\alpha_\phi=0.01,\beta_\phi=0.001$. \prior{ROAR}/\alg{Bayesian~DP} drew samples every $20$ steps. Averaged over $20$ runs.}
 \label{fig:bridge2}
 \end{center}
@@ -364,7 +364,7 @@ In Figure~\ref{fig:grids}, \alg{BFS3}, with the unknown reward prior, is shown t
 \begin{figure}
 \vskip 0.2in
 \begin{center}
-\centerline{\includegraphics[width=3in]{grids}}
+\centerline{\includegraphics[width=3in]{figures/grids}}
 \caption{
 Here \alg{BFS3}/\prior{FDM}, with both known rewards and unknown rewards with a DP prior, is compared against the known-reward \alg{BEB}, and \alg{RMAX}~\cite{brafman02}, a well known algorithm with PAC-MDP guarantees, with $M=5$. Results are averaged over $40$ runs.
 }
@@ -386,7 +386,7 @@ The Paint/Polish world~\cite{walsh09a} provides a situation where the simple and
 \begin{figure}
 \vskip 0.2in
 \begin{center}
-\centerline{\includegraphics[width=3in]{dgms}}
+\centerline{\includegraphics[width=3in]{figures/dgms}}
 \caption{
 The Directed Graphical Models for \prior{FDM} (left) and \prior{Factored-Object} (right). Nodes indicate random variables, and edges show possible dependencies. Shaded nodes are observed. Boxes indicate repetition.
 }
@@ -398,7 +398,7 @@ The Directed Graphical Models for \prior{FDM} (left) and \prior{Factored-Object}
 \begin{figure}
 \vskip 0.2in
 \begin{center}
-\centerline{\includegraphics[width=3in]{paint1-2can}}
+\centerline{\includegraphics[width=3in]{figures/paint1-2can}}
 \caption{
 \alg{BFS3} with \prior{FDM} and \prior{Factored-Object} priors. {\bf Left:}~Paint/Polish with 1 can. \prior{FDM} and \prior{Factored-Object} are identical for one object, and give the same performance. {\bf Right:}~Paint/Polish with 2 cans. \prior{Factored-Object} outperforms \prior{FDM} because it is better able to generalize. Results are averaged over $40$ runs.
 }
@@ -412,7 +412,7 @@ The Directed Graphical Models for \prior{FDM} (left) and \prior{Factored-Object}
 \begin{figure}
 \vskip 0.2in
 \begin{center}
-\centerline{\includegraphics[width=3in]{paint4can}}
+\centerline{\includegraphics[width=3in]{figures/paint4can}}
 \caption{
 Paint/Polish with 4 cans. Using the \prior{Factored-Object} prior allows \alg{BFS3} to learn quickly despite the very large state space. Using \prior{FDM} does not allow learning in a reasonable amount of time, and is not pictured. Results are averaged over $40$ runs.
 }
@@ -457,7 +457,7 @@ The \alg{BOSS} and \alg{BFS3} algorithms were both run in \env{Texture World}, a
 \begin{figure}
 \vskip 0.2in
 \begin{center}
-\centerline{\includegraphics[width=4in]{tworld-reward}}
+\centerline{\includegraphics[width=4in]{figures/tworld-reward}}
 \caption{
 \env{Texture World} on a 5x5 grid. \alg{BOSS} was run with $K=5$ and $B=10$. \alg{BFS3} was run with a search depth of $D=10$, search breadth of $C=5$, and at most $1500$ trajectories per step. In this instance, the actual world had textured set to ``true'', and the red, green and blue state's chances of success were $0.2, 0.3, 0.8$, respectively. The agents were only given the coloring of each state and the prior; they had to decide for themselves whether or not textures mattered.
 }
@@ -470,7 +470,7 @@ The \alg{BOSS} and \alg{BFS3} algorithms were both run in \env{Texture World}, a
 \begin{figure}
 \vskip 0.2in
 \begin{center}
-\centerline{\includegraphics[width=4in]{tworld-time}}
+\centerline{\includegraphics[width=4in]{figures/tworld-time}}
 \caption{
 \env{Texture World} on a 5x5 grid. \alg{BOSS}, because it was able to use value iteration for planning in the small world, was very efficient with its computation when compared to \alg{BFS3}, which by definition uses the conservative tree-search planner \alg{FSSS}.
 }
