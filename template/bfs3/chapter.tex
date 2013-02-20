@@ -83,7 +83,7 @@ Putting a limit on the number of transitions to remember for a particular state-
 \begin{figure}
 \vskip 0.2in
 \begin{center}
-\centerline{\includegraphics[scale=0.5]{bfs3}}
+\centerline{\includegraphics[scale=0.5]{figures/bfs3}}
 \caption{
 %{\bf Left:} the search tree when the agent is at state $s_0$ with no further observations. {\bf Right:} the agent has taken a single step in the world by performing action $a_1$, resulting in a transition to state $s_2$. White nodes indicate hypotheticals that may or may not happen. Grayed nodes indicate things that have been observed. Blackened nodes indicate data that is no longer pertinent and can be thrown out.
 \alg{BFS3} samples next-belief-states for each action $C$ times, and then runs \alg{FSSS} on the resulting belief state, using the BAMDP as a generative model. Every node that is the same distance from the root represents one of the possible worlds that the agent may experience, each with a different history and MDP posterior.
@@ -252,7 +252,7 @@ As a result, an unknown belief-state indicates an unknown state that is at most 
 \begin{figure}
 \vskip 0.2in
 \begin{center}
-\centerline{\includegraphics[scale=0.5]{bfs3tree}}
+\centerline{\includegraphics[scale=0.5]{figures/bfs3tree}}
 \caption{
 \alg{BFS3} will run \alg{FSSS} on each of the $C\cdot A$ next belief-states, $\langle s', h' \rangle$ and its peers. Triangles below belief-states represent search trees explored by \alg{FSSS}. A greyed search tree indicates that some of the true states visited in that search tree are unknown, and the value estimate may be inaccurate. Because we are using \alg{FSSS}, an inaccurate estimate is guaranteed to be optimistic, and can bubble up to the root.
 }
