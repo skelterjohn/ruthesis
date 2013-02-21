@@ -364,6 +364,567 @@ Although it is tempting to sample the instances i.i.d., this shortcut will lead 
 
 \note{jta: use the DPGMM and river-swim figures to illustrate}
 
+
+\section{Learnability}
+
+
+Since a common subgoal for a reinforcement-learning agent is to learn a model, it is useful to quantify how learnable a model is in the first place. It is certainly true that there are some combinations of model priors and ``true'' models\footnote{That is, models from which the observations are sampled.} that do not allow learning of the model without an unreasonably large number of samples.
+
+\begin{example}
+
+Consider the coin flipping experiment in Chapter~\ref{sec:intro}, Section~\ref{sec:intro:coin-flipping}. Using a variable $x$ instead of the concrete likelihood $\frac{9990}{10000}$, we get the model
+\begin{eqnarray}
+\label{sec:models:eqn:coinbag}
+\phi &=& \left\{\begin{array}{lll}
+0.5 & \mbox{w.p.} & x,\\
+1 & \mbox{w.p.} & 1-x,
+\end{array}\right.\\
+\rho &\sim&\phi,\\
+H &\sim& \mbox{Binomial}(\rho, n).
+\end{eqnarray}
+
+For any given probability in Equation~\ref{intro:eqn:coinbag}, there is a number of heads-in-a-row, without any tails, that is required before the posterior indicates that the coin is more likely biased than not. The threshold will occur when $P(\rho=1|H=n,n)=P(\rho=0.5|H=n,n)$. If we substitute $x$ for $\frac{9990}{10000}$ in Equation~\ref{intro:eqn:coinbag}, this threshold gives us the relation
+\begin{eqnarray}
+x &=& \frac{1}{2^n+1}.
+\end{eqnarray}
+Given this relation, we can say something about how \emph{learnable} a biased coin is with the given prior.
+
+
+With the coin flipping example, we give only two possibilities in the prior: double-headed or unbiased. These two coins are not $\epsilon$-close to each other, for any reasonable $\epsilon$, since the likelihood of \emph{heads} for the double-headed coin is $0.5$ away from that of the unbiased coin, and the same distance for tails. If the posterior has a probability of at least $\delta$ of sampling an unbiased coin after $B$ flips, I declare the double-headed coin to not be \bed-learnable with the prior in Equation~\ref{sec:models:eqn:coinbag}.
+
+Choosing $\epsilon<0.5$, so that an unbiased coin is not considered an $\epsilon$-approximation of a double-headed coin, there is a relation between the number of samples $B$, the prior likelihood $x$, and the probability of failure $\delta$. We need to choose $B$ such that the posterior likelihood for the double-headed coin is at least $1-\delta$. That is,
+\begin{eqnarray}
+\frac
+ {P(\rho=1|H=B,n=B)}
+ {P(\rho=\frac{1}{2}|H=B,n=B)}
+&\geq&
+\frac
+ {1-\delta}
+ {\delta},\\
+ %
+\frac
+ {{B \choose B}1^B0^0 (1-x)} 
+ {{B \choose B}{\frac{1}{2}}^B{\frac{1}{2}}^0 x}
+&\geq&
+\frac
+ {1-\delta}
+ {\delta},\\
+ %
+\frac
+ {(1-x)} 
+ {{\frac{1}{2^B}} x}
+&\geq&
+\frac
+ {1-\delta}
+ {\delta},\\
+ %
+ 2^B(1-x)\delta 
+ &\geq&
+ (1-\delta)x,\\
+ %
+ 2^B 
+ &\geq&
+\frac
+ {(1-\delta)x}
+ {(1-x)\delta},\\
+%
+B &\geq& \log_2\left(\frac
+ {(1-\delta)x}
+ {(1-x)\delta}
+ \right).
+\end{eqnarray}
+
+Then, if we set $x=0.999$ and $\delta=0.001$, we find that $B\geq20$ is sufficient.
+
+Correspondingly, the double-headed coin is not \bed-learnable with $\phi$ for any $\epsilon<0.5$, $\delta=0.001$, and $B<20$.
+
+
+\end{example}
+
+The rest of this section will attempt to formalize the concept of \bed-learnability.
+
+\subsection{Learnability of the model for a stochastic function}
+
+Given
+\begin{itemize}
+\item a set $X$,
+\item a set $Y$,
+\item a similarity metric $\sigma:X\times X\rightarrow[0,1]$,
+\item any base value $x_0\in X$,
+\item any vector of example values $\bar x \in X^n$ such that $\sum_{i=1}^n \sigma(x_0, \bar x_i) \geq B$,
+\item a set of models $P$ with $\eta_0 \in P$,
+\item a stochastic function $f_{\eta_0}:X\rightarrow\Pi(Y)$,
+\item and some prior distribution $\phi \in \Pi(P)$ over models,
+\end{itemize}
+we say that a specific model $\eta_0 \in P$ is $B$-$\sigma$-$\epsilon$-$\delta$-learnable with $\phi$ if the process
+\begin{eqnarray}
+\bar y_i &\sim& f_{\eta_0}(\bar x_i),\\
+\tilde\eta &\sim& \phi|(\bar x, \bar y),
+\end{eqnarray}
+results in the condition
+\begin{eqnarray}
+\forall_{y\in Y}|f_{\tilde\eta}(y|x_0)-f_{\eta_0}(y|x_0)| &\leq& \epsilon
+\end{eqnarray}
+holding with probability at least $1-\delta$.
+
+This guarantee can easily be adapted for a discrete set $X$ whose members cannot be generalized. In this case, the similarity metric $\sigma$ is the Kronecker delta, where the result is $1$ if the two values are identical, and $0$ otherwise. With this metric, there must be at least $B$ examples of $x_0$ in the set of example values. We can call this guarantee simply \bed-learnable, with the omission of $\sigma$ meaning it is implicitly the Kronecker delta.
+
+
+To map this setting to the coin-flip example above, consider the set $X$ to be the set of all coins, double-headed or not. Then, we need examples of flips from the coins in that set such that the coins are sufficiently similar to the one we're thinking about, $x_0$. In this case, we only care about coins that are exactly the coin we're trying to estimate, so we need $B$ examples of that coin. The set $Y$ will be the set $\{\mbox{heads},\mbox{tails}\}$, and $\eta_0$ is a model indicating that coin $x_0$ is double-headed. As a result, flipping the double-headed coin, or calling $f_{\eta_0}(x_0)$, should result in heads each time.
+
+Intuitively, if a model is $B$-$\sigma$-$\epsilon$-$\delta$-learnable, then we only need $B$ evidence (according to the similarity metric $\sigma$) at a given point to have a posterior sample be $\epsilon$-accurate at that point with probability $1-\delta$.
+
+In Chapter~\ref{sec:boss} and Chapter~\ref{sec:bfs3}, I will show that this learnability guarantee is a sufficient condition for the posterior accuracy conditions in the analysis of two model-based Bayesian reinforcement-learning algorithms\note{ml:[can you provide an example, even a simple one, for which the guarantee is possible?]}. In the later sections of this chapter, I will describe how to fit different types of MDPs, and their priors, to this guarantee.
+
+\subsection{Learnability of the transition function for a discrete-state, discrete-action MDP}
+
+An MDP $m_0$ can be considered the model for a stochastic function. The transition function $T_{m_0}:S \times A \rightarrow S$ is a function using the MDP components as its model \note{ml:[the model of a transition function?  I'm finding the terminology confusing]}. Specifically, $T_{m_0}(s,a)$ is a multinomial distribution parameterized by an unknown $\theta_0^{s,a}$ vector, which has a prior distribution $\phi$. The goal is to then address how $B$-learnable a particular vector $\theta_0^{s,a}$ is, with samples from the stochastic function $T_{m_0}(s,a) = \mbox{Mult}(\theta_0^{s,a})$.
+
+An MDP $m_0$'s transition function is \bed-learnable when
+\begin{itemize}
+\item $X$ is the set of all state-action pairs $S\times A$,
+\item $Y$ is the set of states $S$,
+\item $x_0$ is some state-action pair $(s_0, a_0)$,
+\item $\bar x$ is a vector of state-action pairs that contains at least $B$ instances of $(s_0,a_0)$,
+\item $P$ is the set of all possible multinomials for each of the state-action pairs that the MDP considers, \note{ml: [MDPs consider?]}
+\item and $f_{\eta_0}$ is $T_{m_0}$, or the transition function of the true MDP $m_0$,
+\end{itemize}
+the process
+\begin{eqnarray}
+s'_i &\sim& \mbox{Mult}(\theta_0^{s_i a_i}),\\
+\tilde \theta_{s,a} &\sim& \phi|(s_1,a_1,s'_1),(s_2,a_2,s'_2),...,(s_n,a_n,s'_n),
+\end{eqnarray}
+
+ \note{ml: [is that the same as xbar?]}
+
+results in the condition
+\begin{eqnarray}
+\forall_{s'\in S} |\tilde\theta_{s_0 a_0}(s') - \theta^0_{s_0 a_0}(s')| & \leq & \epsilon,
+\end{eqnarray}
+with probability at least $1-\delta$.
+
+\note {ml: [needs a wrap up sentence.  "we call this blah." or "we will consider blah".  I am not sure what I should retain from this block of symbols.]}
+
+\subsubsection{Learnability of an MDP using the Flat Dirichlet Multinomial}
+
+The \prior{Flat Dirichlet Multinomial} prior, or \prior{FDM}, described in Chapter~\ref{sec:models}, is one of the simplest priors for a discrete-state, discrete-action MDP. With the \prior{FDM} prior, the transition function for each state is treated as an independent problem where the parameter $\theta_0$ is learned from a set of samples from $\mbox{Mult}(\theta_0)$, and $\theta \sim \mbox{Dir}(\alpha)$.
+
+We can then simplify the analysis of a model with the \prior{FDM} prior's learnability to that of the learnability of some random simplex $\theta_0$ with a Dirichlet prior.
+
+\begin{example}
+
+Let $\alpha=(1, 1)$ and $\theta_0=(\frac 1 2, \frac 1 2)$. This problem is the same as the learnability of an unbiased coin with a uniform prior over its bias (that is, an unbiased coin is just as likely as a double-headed coin, which is just as likely as a coin that lands heads $2/3$ of the time, etc.).
+
+We can resolve the question of learnability for this prior by answering the question of how many times we need to flip this biased coin such that our posterior samples are accurate.
+
+Let $\epsilon = 0.1$ and $\delta = 0.1$. Then, for the unbiased coin to be \bed-learnable, we need to choose a $B$ that is high enough so that $90\%$ of the time when we perform the experiment of flipping the coin $B$ times and sampling from the posterior, we get a coin with a heads likelihood in $[0.4,0.6]$ and a tails likelihood in $[0.4,0.6]$.
+
+Since the Multinomial distribution with two outcomes is the Binomial distribution, and the Dirichlet distribution on the two-dimensional simplex is the Beta distribution, we can use those distributions in our analysis. That is, given the process
+\begin{eqnarray}
+H &\sim& \mbox{Bin}(\rho=0.5, B),\\
+\tilde \rho &\sim& \mbox{Dir}(\alpha=(H+1, \beta=B-H+1)),\\
+\end{eqnarray}
+choose a value $B$ such that
+\begin{eqnarray}
+P(0.4\leq \tilde \rho\leq 0.6)&\geq& 1-\delta,\\
+%
+\sum_{H=0}^B \mbox{Bin}(H|\rho=0.5,n=B) \int_{\tilde \rho=0.4}^{0.6} \mbox{Beta}(\rho|\alpha=H+1,\beta=B-H+1)&\geq& 1-\delta,\\
+%
+\label{sec:guarantees:fdm-likelihood}
+\sum_{H=0}^B {B \choose H} \frac 1 {2^B}
+\left[
+ \begin{array}{l}
+  I_{\min({1,{\frac 1 2 + \epsilon}})}(H+1,B-H+1)\\
+  -I_{\max({0,{\frac 1 2 - \epsilon}})}(H+1,B-H+1)
+ \end{array}
+\right]&\geq& 1-\delta,
+\end{eqnarray}
+where $I_p(\alpha,\beta)$ is the regularized incomplete gamma function, and $\int_0^p\mbox{Beta}(p|\alpha,\beta) dp = I_p(\alpha,\beta)$. \note{ml: [any suggestions on where to go for background reading?]}
+
+The smallest $B$ that satisfies Equation~\ref{sec:guarantees:fdm-likelihood} can be found numerically, and happens to be $21$. As a result, the unbiased coin is \bed-learnable with the $\mbox{Beta}(1,1)$ prior with $B=21$, $\epsilon=0.1$, and $\delta=0.1$.
+
+\end{example}
+
+In general, for any hyperparameter $\alpha$, set of states $S$, and true model $\theta_0$,, we can relate $B$, $\epsilon$ and $\delta$ with the following equation:
+\begin{eqnarray}
+\sum_{\bar {s'}:||\bar {s'}||_1 = B} \limits
+ \mbox{Mult}(\bar {s'}|\theta_0,B)
+ \int_{\theta:||\theta-\theta_0||_1 \leq \epsilon}\limits
+  \mbox{Dir}(\theta|\alpha+\bar{s'})
+  d\theta
+&\geq& 1-\delta.
+\end{eqnarray}
+Although the analysis is difficult, numerical techniques can be used to find the smallest value $B$ for a given $\epsilon$ and $\delta$.
+
+\subsection{Prior learnability}
+
+So far, this chapter has discussed the learnability of a particular ``true'' model for a given prior.
+
+That is, if we start with $\epsilon$, $\delta$, $\phi$, and $\eta_0$, we can imagine a function $B(\eta_0,\phi,\epsilon,\delta)$ that tells us how many samples are required to learn that model, given our accuracy constraints, desired likelihood of success, and prior distribution. \note{ml: [why change the definition now?  maybe you should use this definition from the beginning.  instead of calling it 'learnability' it could be 'sample complexity' say] jta: because i need *both* model learnability and prior learnability}
+
+It also makes sense to talk about the expected learnability, given a prior. The learnability of a prior is
+\begin{eqnarray}
+L(\phi,\epsilon,\delta)
+&=&
+\int_{\eta_0} \phi(\eta_0) B(\eta_0,\phi,\epsilon,\delta) d\eta_0.
+\end{eqnarray}
+
+In other words, the learnability of a prior is the expected learnability of a model sampled from that prior.
+
+Although the learnability is difficult to express exactly, it is related to the probability of success. If, with $\bar x:\sum_i \sigma(x_0,{\bar x}_i)\geq B$,
+\begin{eqnarray}
+\label{sec:guarantees:prior-learnability}
+\int_{\eta_0}\limits
+ \phi(\eta_0) \left[
+ \int_{\bar y} \limits
+  f_{\eta_0}(\bar y|\bar x) \left[
+  \int_{\tilde\eta}\limits
+   \phi(\tilde\eta|(\bar x, \bar y))
+   \mathbb{1}(||\tilde\eta-\eta_0||\leq\epsilon)
+  \ d\tilde\eta \right]
+ \ d\bar y \right]
+\ d\eta_0
+&\geq&
+1-\delta.
+\end{eqnarray}
+In english, first we pick a ``true'' model $\eta_0$ according to the prior $\phi$. Then, we make some observations $\hat y$ from the world created by $\eta_0$. Once we have the ``true'' model and the observations, we see how many models are $\epsilon$-close to the ``true'' model, weighted according to their posterior likelihoods.
+
+\begin{example}
+
+We can use the prior from Equation~\ref{sec:models:eqn:coinbag} as an example to analyze prior learnability. Modifying Equation~\ref{sec:guarantees:prior-learnability} to represent the prior in question, we have
+\begin{eqnarray}
+\label{sec:guarantees:coin-bag-learnability}
+\sum_{\rho_0 \in \{\frac 1 2, 1\}}
+ \phi(\rho_0)
+ \sum_{H=0}^B
+  \mbox{Bin}(H|\rho_0,B)
+  \sum_{\tilde \rho \in \{\frac 1 2, 1\}}
+   \phi(\rho|H)
+   \mathbb{1}(|\rho_0-\tilde\rho|\leq\epsilon)
+&\leq& 1-\delta,\\
+%
+\begin{array}{lrl}
+&x&
+ \sum_{H=0}^B
+  \mbox{Bin}(H|\frac 1 2,B)
+  \sum_{\tilde \rho \in \{\frac 1 2, 1\}}
+   \phi(\rho|H)
+   \mathbb{1}(|\frac 1 2-\tilde\rho|\leq\epsilon)\\ 
++&(1-x)&
+ \sum_{H=0}^B
+  \mbox{Bin}(H|1,B)
+  \sum_{\tilde \rho \in \{\frac 1 2, 1\}}
+   \phi(\rho|H)
+   \mathbb{1}(|1-\tilde\rho|\leq\epsilon)
+\end{array}
+&\leq& 1-\delta.
+\end{eqnarray}
+
+Choosing $0 \leq \epsilon < 0.5$,
+\begin{eqnarray}
+%
+\begin{array}{lrll}
+&x&
+ \sum_{H=0}^B
+  \mbox{Bin}(H|\frac 1 2,B)&
+   \phi(\frac 1 2|H)\\ 
++&(1-x)&
+ \sum_{H=0}^B
+  \mbox{Bin}(H|1,B)&
+   \phi(1|H)
+\end{array}
+&\leq& 1-\delta,\\
+%
+\begin{array}{lrll}
+&x&
+ \sum_{H=0}^B
+  \mbox{Bin}(H|\frac 1 2,B)&
+   \phi(\frac 1 2|H)\\ 
++&(1-x)&
+  \mbox{Bin}(B|1,B)&
+   \phi(1|B)
+\end{array}
+&\leq& 1-\delta,\\
+%
+\label{sec:guarantees:coinbag-learnability-leaveoff}
+\begin{array}{lrll}
+&x&
+ \sum_{H=0}^B
+  \mbox{Bin}(H|\frac 1 2,B)&
+   \phi(\frac 1 2|H)\\ 
++&(1-x)&
+  &
+   \phi(1|B)
+\end{array}
+&\leq& 1-\delta.
+\end{eqnarray}
+%
+%
+In Chapter~\ref{sec:intro}, we saw that
+\begin{eqnarray}
+\phi(1|H) &\propto& (1-x)0^{B-H},\\
+\phi(\frac 1 2|H) &\propto& x \frac 1 {2^B},
+\end{eqnarray}
+which indicates that
+\begin{eqnarray}
+\phi(1|H) &=& \frac
+{(1-x)0^{B-H}}
+{(1-x)0^{B-H}+x \frac 1 {2^B}},\\
+\phi(\frac 1 2|H) &=& \frac
+{x \frac 1 {2^B}}
+{(1-x)0^{B-H}+x \frac 1 {2^B}},
+\end{eqnarray}
+since $1$ and $\frac 1 2$ are the only posterior possibilities with non-zero likelihood.
+
+
+\note{jta: there is a mistake somewhere in the following derivation, but i haven't found it yet. unless you really want to, don't bother reading the rest of this subsection}
+
+Continuing from Equation~\ref{sec:guarantees:coinbag-learnability-leaveoff},
+\begin{eqnarray}
+x
+\left[
+ \sum_{H=0}^B
+  \mbox{Bin}(H|\frac 1 2,B)
+ \phi(\frac 1 2|H)
+\right]
++(1-x)
+\phi(1|B)
+&\geq& 1-\delta,\\
+%
+x
+\left[
+\begin{array}{lll}
+ &(1-\mbox{Bin}(B|\frac 1 2, B))& \phi(\frac 1 2|H<B)\\
+ +&\mbox{Bin}(B|\frac 1 2, B)& \phi(\frac 1 2|B)
+\end{array}
+\right]
++(1-x)
+\phi(1|B)
+&\geq& 1-\delta,\\
+%
+x
+\left[
+ (1-\mbox{Bin}(B|\frac 1 2, B))
+ +\mbox{Bin}(B|\frac 1 2, B) \phi(\frac 1 2|B)
+\right]
++(1-x)
+\phi(1|B)
+&\geq& 1-\delta,\\
+%
+x
+\left[
+ \left(1-\frac 1 {2^B}\right)
+ +\frac 1 {2^B} \phi(\frac 1 2|B)
+\right]
++(1-x)
+\phi(1|B)
+&\geq& 1-\delta,\\
+%
+x
+\left[
+ \left(1-\frac 1 {2^B}\right)
+ +\frac 1 {2^B} \frac
+{x \frac 1 {2^B}}
+{(1-x)0^{B-B}+x \frac 1 {2^B}}
+\right]
++(1-x)
+\phi(1|B)
+&\geq& 1-\delta,\\
+%
+x
+\left[
+ \left(1-\frac 1 {2^B}\right)
+ +\frac 1 {2^{2B}} \frac
+{x }
+{(1-x)+x \frac 1 {2^B}}
+\right]
++(1-x)
+\phi(1|B)
+&\geq& 1-\delta,\\
+%
+x
+\left[
+ \left(1-\frac 1 {2^B}\right)
+ +\frac 1 {2^{2B}} \frac
+{x }
+{(1-x)+x \frac 1 {2^B}}
+\right]
++(1-x)
+\frac
+{(1-x)0^{B-B}}
+{(1-x)0^{B-B}+x \frac 1 {2^B}}
+&\geq& 1-\delta,\\
+%
+x
+\left[
+ \left(1-\frac 1 {2^B}\right)
+ +\frac 1 {2^{2B}} \frac
+{x }
+{(1-x)+x \frac 1 {2^B}}
+\right]
++
+\frac
+{(1-x)^2}
+{(1-x)+x \frac 1 {2^B}}
+&\geq& 1-\delta,\\
+%
+x
+\left[
+ \frac {2^B-1} {2^B}
+ +\frac
+   {x}
+   {2^B(2^B(1-x)+x)}
+\right]
++
+\frac
+ {2^B (1-x)^2}
+ {2^B (1-x)+x}
+&\geq& 1-\delta,\\
+%
+ \frac
+  {2^Bx-x}
+  {2^B}
+ +
+ \frac
+  {x}
+  {2^B(2^B(1-x)+x)}
+ +
+ \frac
+  {2^B (1-x)^2}
+  {2^B (1-x)+x}
+&\geq& 1-\delta,\\
+%
+ \frac
+  {(2^B (1-x)+x)(2^Bx-x)
+   +{x}
+   +{2^{2B} (1-x)^2}}
+  {2^B(2^B(1-x)+x)}
+&\geq& 1-\delta,\\
+%
+ \frac
+  {2^{2B}x (1-x)-2^Bx+2^Bx^2-x^2
+   +{x}
+   +{2^{2B} (1-x)^2}}
+  {2^{2B}(1-x)+2^Bx}
+&\geq& 1-\delta,\\
+%
+ \frac
+  {2^{2B}\left[x (1-x)+(1-x)^2\right]+2^B\left[x^2-x\right]+\left[-x^2
+   +{x}\right]}
+  {2^{2B}(1-x)+2^Bx}
+&\geq& 1-\delta,\\
+%
+ \frac
+  {2^{2B}\left[1-x\right]+2^B\left[-x(1-x)\right]+\left[x(1-x)\right]}
+  {2^{2B}(1-x)+2^Bx}
+&\geq& 1-\delta,\\
+%
+ \frac
+  {2^{2B}\left[1-x\right]+2^B\left[-x(1-x)\right]+\left[x(1-x)\right]}
+  {2^{2B}(1-x)+2^Bx} + \delta
+&\geq& 1,\\
+%
+ \frac
+  {2^{2B}\left[1-x\right]+2^B\left[-x(1-x)\right]+\left[x(1-x)\right]
+   + \delta(2^{2B}(1-x)+2^Bx)}
+  {2^{2B}(1-x)+2^Bx}
+&\geq& 1,\\
+%
+ \frac
+  {2^{2B}\left[(1+\delta)(1-x)\right]+2^B\left[x(x-1+\delta)\right]+\left[x(1-x)\right]}
+  {2^{2B}(1-x)+2^Bx}
+&\geq& 1,\\
+%
+  {2^{2B}\left[(1+\delta)(1-x)\right]+2^B\left[x(x-1+\delta)\right]+\left[x(1-x)\right]}
+&\geq& {2^{2B}(1-x)+2^Bx},\\
+%
+  2^{2B}\left[\delta(1-x)\right]
+  +2^B\left[\delta x-x(1-x)+x\right]
+  +\left[ x(1-x)\right]
+&\geq& 0,
+\end{eqnarray}
+which is a quadratic equation $ay^2+by+c\geq0$, with
+\begin{eqnarray}
+y &=& 2^B,\\
+a &=& \delta(1-x),\\
+b &=& \delta x-x(1-x)+x,\\
+c &=& x(1-x).
+\end{eqnarray}
+As a result,
+\begin{eqnarray}
+2^B &\geq&
+ \frac{
+  -(\delta x - x(1-x) + x)
+  +\sqrt{
+   (\delta x - x(1-x) + x)^2 - 4\delta(1-x)x(1-x)
+  }
+ }
+ {2\delta(1-x)}.
+\end{eqnarray}
+\note{something went wrong, because if $a,b,c\geq0$, there is no real $y$. i'll fix it at some point.}
+
+\end{example}
+
+\begin{example}
+
+\label{sec:guarantees:beta-bin}
+
+We can find the learnability of the Beta-Binomial model,
+\begin{eqnarray}
+\label{sec:guarantees:eqn:beta-bin-beta}
+\rho &\sim& \dBeta(\alpha,\beta),\\
+\label{sec:guarantees:eqn:beta-bin-bin}
+H &\sim& \dBin(\rho_0, B).
+\end{eqnarray}
+
+The Beta-Binomial prior's $\rho$ parameter is \bed-learnable if
+\begin{eqnarray}
+\begin{array}{l}
+\int_{\rho_0} \dBeta(\rho_0|\alpha,\beta)
+ \sum_{H=0}^B \dBin(H|\rho_0,B)\\
+ \cdot
+  \int_{\tilde\rho=\rho_0-\epsilon}^{\rho_0+\epsilon} \dBeta(\tilde\rho|\alpha+H,\beta+B-H)
+   d\tilde\rho \
+  d\rho_0
+  \end{array}
+&\geq& 1-\delta,\\
+%
+\label{sec:guarantees:eqn:beta-binomial-learnable}
+\begin{array}{l}
+\int_{\rho_0} \dBeta(\rho_0|\alpha,\beta)
+ \sum_{H=0}^B \dBin(H|\rho_0,B)\\
+  \cdot \left[
+   I_{\rho_0+\epsilon}(\alpha+H,\beta+B-H)
+   -I_{\rho_0-\epsilon}(\alpha+H,\beta+B-H)
+  \right]
+  d\rho_0
+\end{array}
+&\geq& 1-\delta,
+\end{eqnarray}
+where $I_x(a,b)=I_{\max(0, \min(1, x))}(a,b)$ is the regularized incomplete gamma function.
+
+For a given $\epsilon$, $\delta$, $\alpha$, and $\beta$, the smallest $B$ that satisfies Equation~\ref{sec:guarantees:eqn:beta-binomial-learnable} can be found numerically. Table~\ref{sec:guarantees:table:beta-bin} lists several example values that make the Beta-Binomial \bed-learnable.
+
+
+\begin{table}
+\caption{Learnability of a Beta-Binomial. Using the model from Section~\ref{sec:guarantees:beta-bin}, the posterior for the latent variable $\rho$ is $\epsilon$-accurate with probability at least $1-\delta$ if $B$ is above some threshold. This table gives examples of the relations between the model hyperparameters, $\epsilon$, $\delta$, and $B$. These values are a bit suspect, just wrote the code to find them. }
+\label{sec:guarantees:table:beta-bin}
+\center{\small
+\begin{tabular}{rccl}
+       $(\alpha,\beta)$ & $\delta$ & $\epsilon$ & lowest $B$ \\
+$(1,1)$ &  $0.1$ & $0.1$ & 91 \\
+$(50,50)$ &  $0.1$ & $0.1$ & 31\\
+$(100,100)$ &  $0.1$ & $0.1$ & 0 \\
+$(1,5)$ &  $0.1$ & $0.1$ & 61 \\
+$(5,25)$ &  $0.1$ & $0.1$ & 43\\
+$(10,50)$ &  $0.1$ & $0.1$ & 13
+\end{tabular}
+}\\
+\end{table}
+
+\end{example}
+
+
 %
 \ifperchapterbib%
 For the convenience of the reader, a list of references is provided at the end of each chapter (where applicable).
