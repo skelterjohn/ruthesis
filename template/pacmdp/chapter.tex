@@ -1,0 +1,172 @@
+\section{PAC-MDP}
+
+
+\newcommand{\A}{$\mathbf{A}$\ }
+\newcommand{\As}{$\mathbf{A}$'s\ }
+
+\begin{defn}
+Let $m$ be an MDP with transition function $T$, reward function $R$, state set $S$ and action set $A$, and let $Q(s,a)$ and $V(s)$ be the $Q$-function and value function for $m$, respectively.
+\end{defn}
+
+\begin{defn}
+Let $B$ be a knownness threshold.
+\end{defn}
+
+\begin{defn}
+Let $K_t$ be the set of \emph{known} state-action pairs at time-step $t$.
+\begin{eqnarray}
+\sum_{n=0}^t \mathbb{1}\left((s,a) = (s_n,a_n)\right) \geq B & \Longleftrightarrow & (s,a) \in K_t.
+\end{eqnarray}
+\end{defn}
+
+\begin{defn}
+Let $U_t = S \times A - K_t$ be the set of \emph{unknown} state-action pairs at time-step $t$.
+\end{defn}
+
+\begin{defn}
+Let \A be an agent.
+\end{defn}
+
+\begin{defn}
+Let $T_t: S \times A \rightarrow \Pi(S)$ be \As estimate of the transition function at time-step $t$.
+\end{defn}
+
+\begin{defn}
+Let $Q_t: S \times A \rightarrow \mathbb{R}$ be \As estimate of the $Q$-function at time-step $t$.
+\end{defn}
+
+\begin{defn}
+Let $\pi_t: S \rightarrow A$ be agent \As policy at time-step $t$, and 
+\begin{eqnarray}
+\pi_t(s_t) &=& \argmax_a Q_t(s_t,a),\\
+\forall_{(s,a)\in K_t} Q_t(s,a) &=& R(s,a) + \gamma \sum_{s'} T_t(s'|s,a) V_t(s'),\\
+V_t(s) &=& Q_t(s,\pi_t(s)).
+\end{eqnarray}
+Note that $Q_t(s,a)$ is defined only for \emph{known} state-action pairs. For \emph{unknown} state-action pairs, \A may calculate $Q_t(s,a)$ however it wishes.
+\end{defn}
+
+\begin{lemma}
+Let there be two MDPs $m_1$ and $m_2$, such that
+\begin{eqnarray}
+\forall_{s,a,s'} |T_1(s'|s,a) - T_2(s'|s,a)| &\leq& \epsilon_T,\\
+\forall_{s,a} |R_1(s,a) - R_2(s,a)| &\leq& \epsilon_R.
+\end{eqnarray}
+Then,
+\begin{eqnarray}
+\forall_s |V_1(s) - V_2(s)| &\leq& \frac {\epsilon_R + \gamma \Vmax \epsilon_T} {1-\gamma}.
+\end{eqnarray}
+\note{lemma 33 from lihong's thesis}
+\end{lemma}
+
+\begin{lemma}
+\label{sec:pacmdp:horizon-error}
+Let $V^\pi_m(s,H)$ be the expected value of following policy $\pi$ in MDP $m$ for $H$ steps, starting at state $s$. Then,
+\begin{eqnarray}
+V^\pi_m(s,H) &\geq& V^\pi_m(s) - \epsilon_H,
+\end{eqnarray}
+when
+\begin{eqnarray}
+H&=&\frac 1 {1-\gamma} \ln\left(\frac 1 {\epsilon_H (1-\gamma)}\right).
+\end{eqnarray}
+\note{lemma 2 from lihong's thesis}
+\end{lemma}
+
+\begin{thm}
+The agent \A will choose $\epsilon$-optimal actions for all but $N$ steps with probability at least $1-\delta$, where $N \in \mbox{poly}()$, if each of the following conditions hold:
+\begin{enumerate}
+\item
+\label{sec:pacmdp:cond:opt}
+Optimism: for any given $(s,a) \in U_t$, $Q_t(s,a) \geq Q(s,a) - \epsilon_u$ with probability at least $1-\delta_u$.
+\item
+\label{sec:pacmdp:cond:bounded}
+Bounded discoveries: if $(s_t, a_t) \in K_t$, then $Q_{t+1} = Q_{t}$ and $T_{t+1} = T_{t}$.
+\item
+\label{sec:pacmdp:cond:acc}
+Accuracy: if $(s,a) \in K_t$, then $\forall_{s'}|T_t(s'|s,a)-T(s'|s,a)| \leq \epsilon_T$ and $\forall_{s'}|R_t(s,a)-R(s,a)| \leq \epsilon_R$ with probability at least $1-\delta_k$.
+\end{enumerate}
+\end{thm}
+
+\begin{lemma}
+\label{sec:pacmdp:lemma:fixed-policy}
+Agent \As policy will not change when it visits a \emph{known} state-action pair. Or, if $(s_t,a_t) \in K_t$, then $\pi_t = \pi_{t+1}$.
+\end{lemma}
+\begin{proof}
+Follows immediately from Condition~\ref{sec:pacmdp:cond:bounded}.
+\end{proof}
+
+Let $H$ be a horizon such that
+\begin{eqnarray}
+H&=&\frac 1 {1-\gamma} \ln\left(\frac 1 {\epsilon_H (1-\gamma)}\right).
+\end{eqnarray}
+
+Let $D_t$ be the event that \A visits an \emph{unknown} state-action pair some time between time-step $t$ and $t+H$. Or, the event $\exists_{0\leq n\leq H} (s_{t+n},a_{t+n}) \in U_t$.
+
+\begin{lemma}
+If $P(D_t) \leq \delta_l$, then $Q(s_t,a_t) \geq V(s_t) - \epsilon$. Or, if the likelihood of a discovery within $H$ steps is too small, $a_t$ is an $\epsilon$-optimal action in state $s_t$.
+\end{lemma}
+
+\begin{proof}
+
+Let $m_t$ be an MDP with the transition function for any $(s,a) \in K_t$ to be
+\begin{eqnarray}
+T_{m_t}(s'|s,a) &=& T(s'|s,a),
+\end{eqnarray}
+and the $Q$-function for any $(s,a) \in U_t$ to be
+\begin{eqnarray}
+Q_{m_t}(s,a) &=& Q_t(s,a).
+\end{eqnarray}
+That is, for \emph{known} state-action pairs, it has the dynamics from the true MDP, and for \emph{unknown} state-action pairs, it uses \As estimate of the $Q$-function.
+
+By applying Condition~\ref{sec:pacmdp:cond:acc} and the simulation lemma, we can bound $Q_{m_t}(s)$:
+\begin{eqnarray}
+|Q_{m_t}(s,a) - Q_t(s,a)| &\leq& s(\epsilon_T,\epsilon_R),\\
+|V_{m_t}(s) - V_t(s)| &\leq& s(\epsilon_T,\epsilon_R),
+\end{eqnarray}
+where $s(\epsilon_T,\epsilon_R) = \frac{ \epsilon_R + \gamma \Vmax\epsilon_T }{1-\gamma}$.
+
+The value of following policy $\pi_t$ from $s_t$ for $H$ steps in $m$, or $V^{\pi_t}(s_t,H)$, versus the same value in $m_t$, or $V^{\pi_t}_{m_t}(s_t,H)$, can only differ if an \emph{unknown} state-action pair is visited, and then the difference is bounded by $\Vmax$. Then,
+\begin{eqnarray}
+V^{\pi_t}(s_t,H) &\geq& V^{\pi_t}_{m_t}(s_t,H) - \delta_l\Vmax,\\
+V^{\pi_t}(s_t) + \epsilon_H  &\geq& V^{\pi_t}_{m_t}(s_t) - \epsilon_H - \delta_l\Vmax,\\
+V^{\pi_t}(s_t) &\geq& V^{\pi_t}_{m_t}(s_t) - 2\epsilon_H - \delta_l\Vmax,\\
+ &\geq& V_t(s_t) - s(\epsilon_T,\epsilon_R) -2 \epsilon_H - \delta_l\Vmax,\\
+ &\geq& V(s_t) - \epsilon_u - s(\epsilon_T,\epsilon_R) -2 \epsilon_H - \delta_l\Vmax,\\
+Q^{\pi_t}(s_t,a_t) &\geq& V(s_t) - \epsilon_u - s(\epsilon_T,\epsilon_R) -2 \epsilon_H - \delta_l\Vmax,\\
+Q(s_t,a_t) &\geq& V(s_t) - \epsilon_u - s(\epsilon_T,\epsilon_R) -2 \epsilon_H - \delta_l\Vmax.
+\end{eqnarray}
+If we choose $\delta_l$ such that
+\begin{eqnarray}
+\delta_l &=& \frac {\epsilon - \epsilon_u + s(\epsilon_T,\epsilon_R) +2 \epsilon_H} {\Vmax},
+\end{eqnarray}
+then 
+\begin{eqnarray}
+Q(s_t,a_t) &\geq& V(s_t) - \epsilon.
+\end{eqnarray}
+
+\end{proof}
+
+\begin{lemma}
+The expected number of steps that \A takes where $P(D_t) > \delta_l$ is no more than $\frac 1 {\delta_l} H B S A $.
+\end{lemma}
+
+\begin{proof}
+Let a \emph{discovery} be the event where $(s_t,a_t) \in U_t$. That is, \A took a step that may change its estimated transition and $Q$-functions.
+
+The number of discoveries is at most $B S A$, since each state-action pair can be visited at most $B$ times before it becomes \emph{known}, and there are $S A$ state-action pairs to choose from.
+
+Let a window of $H$ time-steps beginning at time-step $t$, be called a discovery window if $P(D_t) > \delta_l$, and $t=0$, $P(L_{t-1}) \leq \delta_l$, or $(s_{t-1},a_{t-1}) \in U_{t-1}$. The probability of a discovery, or visiting an \emph{unknown} state-action pair, is at least $\delta_l$, so the expected number of discoveries per window is at least $\delta_l$.
+
+The expected number of windows per discovery is at most $1/\delta_l$, and since there are $H$ steps per window, the expected number of steps per discovery is $H / \delta_l$.
+
+Since there are at most $B S A$ discoveries, the expected number of steps during discovery windows is $\frac 1 {\delta_l} H B S A$.
+
+Since any steps taken while not in a discovery window must must be $\epsilon$-optimal, the expected number of sub-optimal steps is at most $\frac 1 {\delta_l} H B S A$.
+
+\end{proof}
+
+\begin{proof}
+\note{of main theorem - not sure how to link it up}
+
+Since all steps where $P(D_t) \leq \delta_l$ are $\epsilon$-optimal, and the expected number of steps when $P(D_t)>\delta_l$ is no more than $\frac 1 {\delta_l} H B S A$, the expected number of sub\A will take at 
+
+\end{proof}
