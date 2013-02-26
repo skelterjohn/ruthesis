@@ -166,9 +166,10 @@ That is, the sequence of observations making up the experiment comes from $m_0$.
 \begin{enumerate}
 \item \label{fsss-acc} The {\bf planning assumption}: For any $s$, with probability at least\ $1-\delta_p$, 
 \begin{eqnarray}
-|\mbox{FSSS}_{m_0}(s, X)-V_{m_0}(s)| &\leq& \epsilon_p.
+|\mbox{FSSS}_{m_0}(s, X)-V_{m_0}(s)| &\leq& \epsilon_p,\\
+\mbox{FSSS}_{m}(s, X) - V_{m}(s) &\geq&\epsilon_p.
 \end{eqnarray}
-In other words, \alg{FSSS} will estimate values accurately if it is given the true model.
+In other words, \alg{FSSS} will estimate values accurately if it is given the true model, and will estimate values optimistically if it is given any model.
 \item \label{sa-bound} The {\bf accuracy assumption}: For some state-action pair $(s,a)$, if $h$ includes $B$ samples from $T_{m_0}(s'|s,a)$, then with probability at least $1-\delta_l$,
 \begin{eqnarray}
 \forall_{s'}~|T_{\phi|h}(s'|s,a) - T_{m_0}(s'|s,a)| \leq \epsilon_l.
@@ -232,9 +233,9 @@ We say that an agent is near Bayes-optimal if we can limit the number of explora
 
 To show PAC-MDP behavior in the BAMDP (and, therefore, near Bayes-optimal behavior), we need to show that three conditions hold~\cite{lihong09pacmdp}:
 \begin{enumerate}
-\item \label{pacmdp-disc} bounded discoveries,
-\item \label{pacmdp-acc} accuracy, and
-\item \label{pacmdp-opt} optimism.
+\item \label{pacmdp-opt} optimism,
+\item \label{pacmdp-disc} bounded discoveries, and
+\item \label{pacmdp-acc} accuracy.
 \end{enumerate}
 
 To understand these criteria and how they connect PAC-MDP behavior in the BAMDP to near Bayes-optimal behavior in the true MDP, we need to define the concept of \emph{known} and \emph{unknown} \emph{states} in $m_0$ and  \emph{known} and \emph{unknown} \emph{belief-states} in $m_\phi$.
@@ -265,7 +266,9 @@ As a result, an unknown belief-state indicates an unknown state that is at most 
 
 \alg{BFS3} is PAC-MDP for the belief-state MDP because it satisfies the 3 criteria.
 
-Condition~\ref{pacmdp-disc} holds because if the agent reaches an unknown belief state (one with an inaccurate, optimistic value), it must be because there is an unknown state-action pair beneath it in the tree \emph{and} this node will be reached by the current policy with high probability.  (Quantifying this claim \note{ml: [I'm afraid you need to do it.  it's just a sketch otherwise and you are claiming this result as one of your principal contributions]} involves an argument that closely parallels the ``explore or exploit'' lemma from PAC-MDP theory.)  Note that when an unknown state-action pair is reached, it moves closer to being known.  In fact, an agent can only do this update $S\cdot A \cdot B$ times, so, the number of discoveries is bounded.
+Condition~\ref{pacmdp-disc} holds because if the agent reaches an unknown belief state (one with an inaccurate, optimistic value), it must be because there is an unknown state-action pair beneath it in the tree \emph{and} this node will be reached by the current policy with high probability.
+%(Quantifying this claim \note{ml: [I'm afraid you need to do it.  it's just a sketch otherwise and you are claiming this result as one of your principal contributions]} involves an argument that closely parallels the ``explore or exploit'' lemma from PAC-MDP theory.) 
+ Note that when an unknown state-action pair is reached, it moves closer to being known.  In fact, an agent can only do this update $S\cdot A \cdot B$ times, so, the number of discoveries is bounded.
 
 % Condition~\ref{pacmdp-disc} holds because a discovery is an event that updates the posterior, or changes the history. Since an agent can only do this update $S\cdot A \cdot N$ times, the number of discoveries is bounded by $S\cdot A \cdot N$.
 
@@ -274,6 +277,10 @@ Condition~\ref{pacmdp-acc} holds because of Prerequisite~\ref{sa-bound} (the acc
 %Condition~\ref{pacmdp-opt} holds because of the nature of \alg{FSSS}. We know that \alg{FSSS} will never be pessimistic about a state's value~\cite{walsh10}. We will allow any uncertainty in a belief-state's value (that is, it can possibly run into a state-action pair for which $N$ samples have \emph{not} been observed) to cause \alg{FSSS} to be inaccurate. And, if it is not accurate, \alg{FSSS} must be optimistic. In this sense, uncertainty will draw the agent towards unknown states.
 
 Condition~\ref{pacmdp-opt} holds because of our definition of known and unknown belief-states and the behavior of \alg{FSSS}. Known belief-states have accurate values, and unknown belief-states have optimistic values. No belief-state ever has a pessimistic value.
+
+To make use of the PAC-MDP proof framework from Chapter~\note{which chapter?}, we must define a \emph{class} of state-action pairs. In this case, since a state in the BAMDP is belief-states $\langle s, h \rangle$, we will say two state-action pairs $(\langle s_1, h_1 \rangle, a_1)$ and $(\langle s_2, h_2 \rangle, a_2)$ are in the same class if and only if $s_1=s_2$ and $a_1=a_2$. That is, only the concrete state and action matter for classification. The history is ignored.
+
+With this choice of \emph{classes}, the Accuracy Condition is satisfied by observing that if $B$ examples of $(\langle s_0, h \rangle,a_0)$ have been observed, the history of the last one contains $B$ transitions from concrete state $s_0$ using action $a_0$, and therefore its dynamics are known to within $\epsilon_l$.
 
 \subsection{How accurate, and how likely?}
 

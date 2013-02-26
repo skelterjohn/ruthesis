@@ -150,11 +150,18 @@ In the parlance of this dissertation, \alg{HBMTRL} is both an algorithm and a fa
 
 Bayesian Exploration Exploitation Tradeoff in LEarning, or \alg{BEETLE}~\cite{poupart06} treats the task of Bayes-optimal behavior as optimal behavior in a POMDP whose hidden state is the MDP describing the transition probabilities between the observed states.
 
-This algorithm assumes a flat Dirichlet multinomial prior, where each of the MDP's next-state distributions are drawn from a Dirichlet distribution. \alg{BEETLE} then uses an iterative method \note{pp: The iterative method is value iteration} to approximate the Bayes-expected value of each state, and makes decisions based upon these results. \note{pp: The value function is not over states only, but also beliefs, which correspond to distributions over the model parameters.}
+This algorithm assumes the Flat Dirichlet Multinomial prior, where each of the MDP's next-state distributions are drawn from a Dirichlet distribution.
 
-\note{pp: We use Dirichlets to express distributions over the model parameters, but we don't draw any samples.  All integrals are computed exactly.}
+The POMDP's state-space is $S \times \Theta$, where $\Theta$ is the set of next-state likelihood vectors, describing the entire dynamics of the MPD. The POMDP's action space is the same as that of the underlying MDP's. The transition function is $P(\langle s', \theta' \rangle | \langle s,\theta\rangle, a) = \theta_{s,a}^{s'}\delta(\theta,\theta')$, where $\delta$ is the Kronecker delta. The set of observations is the set of states from the underlying MDP. And, the reward function is known.
 
-\note{Given that Pascal is on the committee, it sure seems like this section should be extensive.  Currently, it's the shortest one.}
+Since the Dirichlet distribution is conjugate prior to the multionimial distribution, belief monitoring is straightforward.
+
+ \alg{BEETLE} is a point-based value iteration method for this sort of POMDP, and for every iteration it will prune the number of belief-states that it is considering in order to mitigate the natural intractibility of POMDP planning.
+
+%\note{pp: We use Dirichlets to express distributions over the model parameters, but we don't draw any samples.  All integrals are computed exactly.}
+
+%\note{Given that Pascal is on the committee, it sure seems like this section should be extensive.  Currently, it's the shortest one.}
+
 
 
 

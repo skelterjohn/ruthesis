@@ -1,4 +1,8 @@
 
+\section{Motivation}
+
+This section revisits the motivation behind the Bayesian approach to model-based reinforcement learning, and why generalized priors are an important aspect of that approach.
+
 One goal of Bayesian approaches to machine learning is to make computer learners more human in the predictions they make. Humans are very good at knowledge transfer, or the application of observations made in the past to predictions that need to be made in the future. The use of a prior is an effective and principled way to bring in knowledge from some other domain (or from an algorithm designer's imagination).
 
 The distinction between prior knowledge and algorithm is one that is important and natural, and allows the agent designer to narrow his or her focus. The ability to develop a prior (and the associated inference mechanism) is sufficient for bestowing an agent with some sort of intrinsic knowledge, and this prior can then be plugged directly into \alg{Bayesian DP}, \alg{BOSS}, \alg{BFS3}, or any other algorithm built in this fashion.
@@ -7,5 +11,33 @@ Considering the inference separately from the decision-making is also advantageo
 
 \section{Contributions}
 
-The \alg{BFS3} algorithm and its corresponding analysis is the direct result of my efforts. I developed the \prior{Cluster} and \prior{ROAR} priors. All experiments presented in Chapter~\ref{sec:experiments} are the result of code that I wrote.
+This section lists the specific contributions of this dissertation.
+
+\subsection{Bayesian modeling}
+
+While it is not unprecedented for a reinforcement-learning algorithm to accept flexible priors~\cite{strens00,wilson07,doshi2009infinite}, specific priors that can be adapted to different situations are less common. Chapter~\ref{sec:models} discusses several structured priors that can be used for reinforcement-learning algorithms, and discusses in detail the analysis inference methods needed to work with them effectively.
+
+Of special note are the non-parametric models, which allow a reinforcement learner to infer complex structure from observations in ways that are impossible to guess before-hand. The \prior{cluster} prior is previously published~\cite{asmuth09}, but the \prior{ROAR} prior, which uses a CRP to do inference about clustering in continuous spaces, exists only in this dissertation.
+
+Also useful are some of the highly-specialized models mentioned in the experiments in Chapter~\ref{sec:experiments}. While they, in particular, are not much use outside of the experiments they are tied to, they serve as an example of how an agent designer can craft a special prior for a special environment. This creation allows the designer to say exactly what parts of the environment are uncertain, and encode the known structure in an efficient and principled way. And, once such a prior is constructed, there exist several algorithms, including two introduced in this dissertation, that can make use of this prior directly.
+
+\subsection{The BOSS algorithm}
+
+The \alg{BOSS} algorithm and analysis, from Chapter~\ref{sec:boss}, is a major contribution of this dissertation. This algorithm is a flexible and powerful approach for making use of arbitrary priors.
+
+Uncertainly is typically one of the hardest things to quantify in machine learning. Some approaches, like \alg{MBIE}~\cite{strehl05b} or \alg{RMAX}~\cite{brafman02}, deal with uncertainty by artificially modifying the reward function of the estimated MDP. \alg{BOSS} addresses uncertainty directly by using posterior samples, which naturally have a correlation between variance and uncertainty. Additionally, \alg{BOSS} is not significantly more computationally expensive, aside from the posterior sampling, than the simplest of model-based learners, since it can use off-the-shelf planning techniques.
+
+Beyond the use of flexible priors, \alg{BOSS} is one of a small collection~\cite{sorg10,araya2012near,asmuth11} of algorithms that also has theoretical guarantees about its sample complexity. Depending on the particulars of the environment and the prior, \alg{BOSS} can be both PAC-MDP and PAC-BAMDP. This dissertation presents the detailed analysis of these guarantees with respect to \alg{BOSS}, and hopefully can provide clues about how to make similar analyses for other Bayesian model-based algorithms.
+
+\subsection{The BFS3 algorithm}
+
+The \alg{BFS3} algorithm and its corresponding analysis is also a major contribution of this dissertation. The approach used by \alg{BFS3} differs from \alg{BOSS} in several important respects. First, it is not planner-agnostic---the analysis depends on \alg{FSSS}~\cite{walsh10} being used. Second, instead of sampling MDPs from the posterior, it samples observations directly. Depending on the situation, MDP sampling or observation sampling might be more appropriate, and these two algorithms show that both are possible and practical.
+
+Also, \alg{BFS3} has an attribute that \alg{BOSS} does not have: more is never worse, and often better. That is, raising the values of its parameters will never cause \alg{BFS3} to be less Bayes-optimal. There is some minimum value for the parameters that \alg{BFS3} needs to function correctly, but beyond that it will put anything you give it to good use. Contrast this with \alg{BOSS}'s sample count parameter, where a value that is too high or too low will render \alg{BOSS} useless.
+
+This algorithm also has theoretical gaurantees. Specifically, it is PAC-BAMDP. Since raising its parameters will eventually cause it to be exactly Bayes-optimal, in the limit, it cannot have a PAC-MDP guarantee, since there are priors which induce a Bayes-optimal policy that is sub-optimal~\note{cite lihong's counter-example}.
+
+\section{Concluding remarks}
+
+Encoding prior knowledge into a reinforcement-learning algorithm is hard. Using the Bayesian approach, where the knowledge is encoded into a prior distribution, allows a researcher to compartmentalize some of the difficulty. Inferring structure in environments is especially difficult to do without using the Bayesian approach. This dissertation aims to cover two important aspects of Bayesian model-based reinforcement learning: the construction and inference of priors and posteriors, and the algorithms that make effective use of those priors and posteriors.
 

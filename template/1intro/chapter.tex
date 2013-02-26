@@ -151,7 +151,7 @@ An algorithm that is PAC-MDP will, with high probability, make approximately opt
 
 \subsubsection{Bayes-optimal}
 
-\ref{sec:intro:bayes-opt}
+\label{sec:intro:bayes-opt}
 
 \emph{Bayes-optimality} is an optimality guarantee made in the context of an MDP prior. The prior distribution acts as knowledge about the environment given to the agent before learning occurs. If the MDP truly is drawn from the provided prior, then the policy that acquires the highest expected return is well-defined, if difficult to compute.
 
@@ -197,24 +197,12 @@ As is common in machine-learning tasks, we can opt to satisfy ourselves with a p
 
 An algorithm that is PAC-BAMDP will, with probability $1-\delta$, make $\epsilon$-Bayes-optimal decisions for all but a polynomial number of steps, where the polynomial is a function of the number of concrete states (not the number of belief-states), actions, $\epsilon$, and $\delta$.
 
-The concept of PAC-BAMDP is not quite on the same level as PAC-MDP. With a PAC-MDP algorithm, it is normally impossible to act optimally for all steps. That is, the polynomial number of mistakes is necessary in order to find the optimal policy later. There is simply not enough information available to the agent until many potentially sub-optimal steps are taken. With PAC-BAMDP, it is possible to achieve $\epsilon$-$\delta$ Bayes-optimal behavior with \emph{zero} sub-optimal steps. All information needed to act Bayes-optimally is contained in the prior.
+The concept of PAC-BAMDP is not quite on the same level as PAC-MDP. With a PAC-MDP algorithm, it is normally impossible to act optimally for all steps. That is, the polynomial number of mistakes is necessary in order to find the optimal policy later --- there is simply not enough information available to the agent until many potentially sub-optimal steps are taken. With PAC-BAMDP, it is possible to achieve $\epsilon$-$\delta$ Bayes-optimal behavior with \emph{zero} sub-optimal steps. All information needed to act Bayes-optimally is contained in the prior.
 
-An example of an $\epsilon$-$\delta$-Bayes optimal algorithm that requires zero sub-optimal steps is the application of \alg{Sparse Sampling} to the BAMDP. The \alg{Sparse Sampling} algorithm, discussed in detail in Chapter~\ref{sec:relmbbrl}, performs an exhaustive tree search up to some provided depth $d$, trying every action from each visited state $C$ times in order to get a good representation of the next-state distribution. The quantities $d$ and $C$ are chosen to ensure that a $\epsilon$-accurate value for the state is found with probability $1-\delta$. Given $d$ and $C$, \alg{Sparse Sampling} will have to create $(A C)^d$ nodes in its search tree, where $A$ is the number of actions. As a result of this exponential component to the algorithm's runtime, and the fact that $C$ and $d$ need to be phenominally large\footnote{zzz: crunch some numbers} to ensure a reasonable accuracy, \alg{Sparse Sampling} is impractical to use even in most trivial problems.
+An example of an $\epsilon$-$\delta$-Bayes optimal algorithm that requires zero sub-optimal steps is the application of \alg{Sparse Sampling} to the BAMDP. The \alg{Sparse Sampling} algorithm, discussed in detail in Chapter~\ref{sec:relmbbrl}, performs an exhaustive tree search up to some provided depth $d$, trying every action from each visited state $C$ times in order to get a good representation of the next-state distribution. The quantities $d$ and $C$ are chosen to ensure that a $\epsilon$-accurate value for the state is found with probability $1-\delta$. Given $d$ and $C$, \alg{Sparse Sampling} will have to create $(A C)^d$ nodes in its search tree, where $A$ is the number of actions. As a result of this exponential component to the algorithm's runtime, and the fact that $C$ and $d$ need to be phenominally large\footnote{The quantity $C$ must be large enough so that all nodes in the search tree have enough children to be able to estimate their dynamics properly. However, the number of nodes in the search tree grows as a polynomial of $C$. This feedback loop results in bounds for $C$ that are astoundingly high.} to ensure a reasonable accuracy, \alg{Sparse Sampling} is impractical to use even in most trivial problems.
 
 PAC-BAMDP can then be called a compromise between a reinforcement-learning algorithm's sample complexity and computation complexity. \alg{Sparse Sampling} on the BAMDP has a sample complexity of $0$, but an exponential computation complexity. Chapter~\ref{sec:relmbbrl}, on related work, and Chapters~\ref{sec:boss}~and~\ref{sec:bfs3}, on the contributions of this dissertation, describe algorithms with PAC-BAMDP guarantees and several ways to approach the computation complexity issue.
 
-\subsubsection{PAC-MDP and PAC-BAMDP}
-
-These two different optimality guarantees are related in the following ways:
-
-\begin{enumerate}
-\item If the environment is drawn from the agent's prior, then a PAC-BAMDP agent is also PAC-MDP, and vice versa. \label{intro:opt:pac-equiv} \note{[I don't believe you.  Proof?]}
-\item If the environment is not drawn from the prior, then a PAC-BAMDP agent may perform worse than a PAC-MDP agent. \note{[or vice versa?]}
-\end{enumerate}
-
-Although Property~\ref{intro:opt:pac-equiv} indicates that PAC-MDP and PAC-BAMDP guarantees are equivalent when the prior is true, PAC-BAMDP agents can often perform much better in practice, since they can draw in prior knowledge in a way that algorithms that don't make use of a prior cannot. PAC-BAMDP can be considered the worst case for a Bayesian reinforcement learner: if the prior isn't informative enough, or it's too hard to plan in the belief-space induced by the prior, a PAC-BAMDP agent will still be PAC-MDP if the prior is true.
-
-When the environment is not drawn from the prior, a PAC-BAMDP guarantee is less useful theoretically. In real experiments, the actual environment is almost never drawn from the prior---it is something that exists before-hand, and the prior is constructed later as a hint to the agent. For a PAC-BAMDP algorithm to be effective, the true environment only needs to be ``sufficiently likely'' according to the prior. Unfortunately this condition is not well-defined and is difficult to reason about except intuitively. \note{probably a better way to say that} \note {[or, might be worth providing a proof!  there ought to be something that could be said as a function of the "distance" between the prior and the real generation process (or the environment]}
 
 \section{Bayesian inference}
 
