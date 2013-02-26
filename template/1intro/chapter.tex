@@ -149,6 +149,7 @@ An algorithm that is PAC-MDP will, with high probability, make approximately opt
 
 \alg{RMAX}~\cite{brafman02} is an example of a reinforcement-learning algorithm with a PAC-MDP guarantee.
 
+
 \subsubsection{Bayes-optimal}
 
 \label{sec:intro:bayes-opt}
@@ -203,6 +204,200 @@ An example of an $\epsilon$-$\delta$-Bayes optimal algorithm that requires zero 
 
 PAC-BAMDP can then be called a compromise between a reinforcement-learning algorithm's sample complexity and computation complexity. \alg{Sparse Sampling} on the BAMDP has a sample complexity of $0$, but an exponential computation complexity. Chapter~\ref{sec:relmbbrl}, on related work, and Chapters~\ref{sec:boss}~and~\ref{sec:bfs3}, on the contributions of this dissertation, describe algorithms with PAC-BAMDP guarantees and several ways to approach the computation complexity issue.
 
+\subsubsection{Proving PAC-MDP}
+
+
+\newcommand{\A}{$\mathbf{A}$\ }
+\newcommand{\As}{$\mathbf{A}$'s\ }
+
+This section presents a framework for proving that an algorithm offers a PAC-MDP guarantee.
+
+This proof is an adaptation of earlier work~\cite{lihong09pacmdp,kearns02} with one minor change: instead of saying a particular state-action pair is \emph{known} when it has been tried at least some threshold number of times, a state-action pair is said to be \emph{known} when other state-action pairs of the same \emph{class} have been visited at least some threshold number of times. Introducing the concept of a \emph{class} of state-action pairs allows the analysis to work smoothly with BAMDPs, which have an infinite number of states. Though the number of states may be infinite, we can choose \emph{classes} for each state-action pair that identify what part of that pair is being learned about (that is, we can ignore history when choosing a \emph{class}).
+
+\newtheorem*{horizonlemma}{Bounded Horizon Lemma}
+\begin{horizonlemma}
+\note{lemma 2 from lihong's thesis}
+
+\label{sec:pacmdp:horizon-error}
+Let $V^\pi_m(s,H)$ be the expected value of following policy $\pi$ in MDP $m$ for $H$ steps, starting at state $s$. Then,
+\begin{eqnarray}
+V^\pi_m(s,H) &\geq& V^\pi_m(s) - \epsilon_H,
+\end{eqnarray}
+when
+\begin{eqnarray}
+H&=&\frac 1 {1-\gamma} \ln\left(\frac \Vmax {\epsilon_H}\right).
+\end{eqnarray}
+\note{note to self: there should probably be a $\Vmax$ in here. specifically, why not just $\ln_\gamma(\epsilon_H/\Vmax)$?}
+\end{horizonlemma}
+
+\newtheorem*{simlemma}{Simulation Lemma~\cite{lihong09simlemma,kearns02}}
+\begin{simlemma}
+
+\label{sec:pacmdp:simulation}
+Let $m_1$ and $m_2$ be two MDPs, such that
+\begin{eqnarray}
+\forall_{s,a,s'} |T_1(s'|s,a) - T_2(s'|s,a)| &\leq& \epsilon_T,\\
+\forall_{s,a} |R_1(s,a) - R_2(s,a)| &\leq& \epsilon_R.
+\end{eqnarray}
+Then,
+\begin{eqnarray}
+\forall_s |V_1(s) - V_2(s)| &\leq& s(\epsilon_T,\epsilon_R),\\
+\forall_{s,a} |Q_1(s,a) - Q_2(s,a)| &\leq& s(\epsilon_T,\epsilon_R),
+\end{eqnarray}
+where
+\begin{eqnarray}
+s(\epsilon_T,\epsilon_R) &=& \frac {\epsilon_R + \gamma \Vmax \epsilon_T} {1-\gamma}.
+\end{eqnarray}
+\end{simlemma}
+
+\begin{defn}
+Let $m$ be an MDP with transition function $T$, reward function $R$, state set $S$ and action set $A$, and let $Q(s,a)$ and $V(s)$ be the $Q$-function and value function for $m$, respectively.
+\end{defn}
+
+\begin{defn}
+Let $C$ be a set of \emph{classes} for state-action pairs, and let $c:S\times A\rightarrow C$ be a \emph{classifier}. A simple and useful example of a \emph{classifier} would be one that assigns each state-action pair to its own \emph{class}. For a BAMDP, where each BAMDP state is the pairing of a concrete state from the MDP and a history of all transitions observed, the classifier could assign each concrete state and action pair a \emph{class}, ignoring history.
+\end{defn}
+
+\begin{defn}
+Let $B$ be a knownness threshold. The quantity $B$ needs to be chosen such that if an agent has tried some state-action pair at least $B$ times, it has an approximately accurate estimate of its transition and reward functions.
+\end{defn}
+
+\begin{defn}
+Let $K_t \subseteq C$ be the set of \emph{known} \emph{classes}, and let $U_t = C - K_t$ be the set of \emph{unknown} \emph{classes}, at time-step $t$. A state-action pair $(s,a)$ is said to be \emph{known} if $c(s,a) \in K_t$.
+\end{defn}
+
+\begin{defn}
+Let \A be an agent, with
+\begin{itemize}
+\item
+$T_t$ being \As estimate of the transition function at time-step $t$,
+\item
+$R_t$ being \As estimate of the reward function at time-step $t$,
+\item
+$Q_t$ being \As estimate of the $Q$-function at time-step $t$,
+\item
+$\pi_t$ being \As policy at time-step $t$, 
+\end{itemize}
+such that
+\begin{eqnarray}
+\pi_t(s_t) &=& \argmax_a Q_t(s_t,a),\\
+\forall_{(s,a) | c(s,a)\in K_t} Q_t(s,a) &=& R_t(s,a) + \gamma \sum_{s'} T_t(s'|s,a) V_t(s'),\\
+V_t(s) &=& Q_t(s,\pi_t(s)).
+\end{eqnarray}
+Note that $Q_t(s,a)$ is defined only for \emph{known} state-action pairs. For \emph{unknown} state-action pairs, \A may calculate $Q_t(s,a)$ however it wishes.
+\end{defn}
+
+\begin{thm}
+Let the following conditions be true.
+\begin{enumerate}
+\item
+\label{sec:pacmdp:cond:opt}
+Optimism: for any given $c(s,a) \in U_t$, $Q_t(s,a) \geq Q(s,a) - \epsilon_u$.
+% with probability at least $1-\delta_u$.
+\item
+\label{sec:pacmdp:cond:bounded}
+Bounded discoveries: if $c(s_t, a_t) \in K_t$, then $\pi_{t+1} = \pi_{t}$,\\ and $\forall_{s,a} \sum_{t=0}^\infty \mathbb{1}\left[(s,a) = (s_t,a_t) \wedge c(s_t,a_t) \in U_t\right] < B$.
+\item
+\label{sec:pacmdp:cond:acc}
+Accuracy: if $c(s,a) \in K_t$, then $\forall_{s'}|T_t(s'|s,a)-T(s'|s,a)| \leq \epsilon_T$ and $|R_t(s,a)-R(s,a)|\leq\epsilon_R$.
+% with probability at least $1-\delta_k$.
+\end{enumerate}
+Then, the expected number of sub-$\epsilon$-optimal actions chosen by agent \A is at most $N = \frac 1 {\delta_l} H B C$, where
+\begin{eqnarray}
+\delta_l &=& \frac {\epsilon - (\epsilon_u + s(\epsilon_T,\epsilon_R) +2 \epsilon_H)} {\Vmax},\\
+s(\epsilon_T,\epsilon_R) &=& \frac {\epsilon_R + \gamma \Vmax \epsilon_T} {1-\gamma},\\
+H&=&\frac 1 {1-\gamma} \ln\left(\frac  \Vmax {\epsilon_H}\right),\\
+N&\in&\mbox{poly}\left(\frac 1 \epsilon, \Vmax, \frac{1}{1-\gamma}, \ln\left(\frac \Vmax {\epsilon_H}\right), B, C\right).
+\end{eqnarray}
+\end{thm}
+
+\begin{proof}
+Lemma~\ref{sec:pacmdp:lemma:opt-steps} shows that if a certain event is sufficiently unlikely during a particular step, that step is $\epsilon$-optimal. Lemma~\ref{sec:pacmdp:lemma:bad-steps} shows that the expected number of steps without that quality is bounded by $\frac 1 \delta_l H B C$.
+\end{proof}
+
+\begin{defn}
+Let $D_t$ be the event that \A visits an \emph{unknown} state-action pair some time between time-step $t$ and $t+H$. Or, the event $\exists_{0\leq n\leq H} c(s_{t+n},a_{t+n}) \in U_t$.
+\end{defn}
+
+\begin{lemma}
+\label{sec:pacmdp:lemma:opt-steps}
+If $P(D_t) \leq \delta_l$, then $Q(s_t,a_t) \geq V(s_t) - \epsilon$. In other words, if the likelihood of a discovery within $H$ steps is too small, $a_t$ is an $\epsilon$-optimal action in state $s_t$.
+\end{lemma}
+
+\begin{proof}
+
+The strategy for this proof is as follows:
+\begin{itemize}
+\item Speculate the existence of an intermediate MDP $m_t$, which has perfectly accurate dynamics for \emph{known} state-action pairs, and optimistic $Q$-values for \emph{unknown} state-action pairs.
+\item Bound the difference between the value of the current policy on the real MDP and on $m_t$.
+\item Bound the difference between the value of the current policy on $m_t$ and \As estimate.
+\end{itemize}
+
+Let $m_t$ be an MDP with the transition function for any \emph{known} state-action pair (with $c(s,a) \in K_t$) defined to be
+\begin{eqnarray}
+T_{m_t}(s'|s,a) &=& T(s'|s,a),
+\end{eqnarray}
+and the $Q$-function for any \emph{unknown} state-action pair (with $c(s,a) \in U_t$) defined to be
+\begin{eqnarray}
+Q_{m_t}(s,a) &=& Q_t(s,a).
+\end{eqnarray}
+That is, for \emph{known} state-action pairs, it has the dynamics from the true MDP, and for \emph{unknown} state-action pairs, it uses \As estimate of the $Q$-function.
+
+By applying Condition~\ref{sec:pacmdp:cond:acc} and the simulation lemma, we can bound the difference between its value function and \As estimate:
+\begin{eqnarray}
+|Q_{m_t}(s,a) - Q_t(s,a)| &\leq& s(\epsilon_T,\epsilon_R),\\
+|V_{m_t}(s) - V_t(s)| &\leq& s(\epsilon_T,\epsilon_R),
+\end{eqnarray}
+where $s(\epsilon_T,\epsilon_R) = \frac{ \epsilon_R + \gamma \Vmax\epsilon_T }{1-\gamma}$.
+
+The value of following policy $\pi_t$ from $s_t$ for $H$ steps in $m$, or $V^{\pi_t}(s_t,H)$, versus the same value in $m_t$, or $V^{\pi_t}_{m_t}(s_t,H)$, can only differ if an \emph{unknown} state-action pair is visited, and then the difference is bounded by $\Vmax$. Therefore,
+\begin{eqnarray}
+V^{\pi_t}(s_t,H) &\geq& V^{\pi_t}_{m_t}(s_t,H) - \delta_l\Vmax,\\
+\label{sec:pacmdp:eqn:extend-horizon}
+V^{\pi_t}(s_t) + \epsilon_H  &\geq& V^{\pi_t}_{m_t}(s_t) - \epsilon_H - \delta_l\Vmax,\\
+V^{\pi_t}(s_t) &\geq& V^{\pi_t}_{m_t}(s_t) - 2\epsilon_H - \delta_l\Vmax,\\
+\label{sec:pacmdp:eqn:apply-sim}
+ &\geq& V_t(s_t) - s(\epsilon_T,\epsilon_R) -2 \epsilon_H - \delta_l\Vmax,\\
+\label{sec:pacmdp:eqn:get-optimistic}
+ &\geq& V(s_t) - \epsilon_u - s(\epsilon_T,\epsilon_R) -2 \epsilon_H - \delta_l\Vmax,\\
+Q^{\pi_t}(s_t,a_t) &\geq& V(s_t) - \epsilon_u - s(\epsilon_T,\epsilon_R) -2 \epsilon_H - \delta_l\Vmax,\\
+Q(s_t,a_t) &\geq& V(s_t) - \epsilon_u - s(\epsilon_T,\epsilon_R) -2 \epsilon_H - \delta_l\Vmax.
+\end{eqnarray}
+Equation~\ref{sec:pacmdp:eqn:extend-horizon} is a result of applying the Bounded Horizon Lemma.
+Equation~\ref{sec:pacmdp:eqn:apply-sim} is a result of applying the Simulation Lemma.
+Equation~\ref{sec:pacmdp:eqn:get-optimistic} is a result of applying the Optimism Condition.
+
+
+If we choose $\delta_l$ such that
+\begin{eqnarray}
+\delta_l &=& \frac {\epsilon - (\epsilon_u + s(\epsilon_T,\epsilon_R) +2 \epsilon_H)} {\Vmax},
+\end{eqnarray}
+then 
+\begin{eqnarray}
+Q(s_t,a_t) &\geq& V(s_t) - \epsilon.
+\end{eqnarray}
+
+\end{proof}
+
+\begin{lemma}
+\label{sec:pacmdp:lemma:bad-steps}
+The expected number of steps that \A takes where $P(D_t) > \delta_l$ is no more than $\frac 1 {\delta_l} H B C$.
+\end{lemma}
+
+\begin{proof}
+Let a \emph{discovery} be the event where $c(s_t,a_t) \in U_t$. That is, \A took a step that may change its estimated transition and $Q$-functions.
+
+The number of discoveries is at most $B C$, since each state-action pair's \emph{class} can be visited at most $B$ times before it becomes \emph{known}, and there are $C$ \emph{classes} to choose from.
+
+Let a window of $H$ time-steps beginning at time-step $t$, be called a discovery window if $P(D_t) > \delta_l$, and $t=0$, $P(L_{t-1}) \leq \delta_l$, or $c(s_{t-1},a_{t-1}) \in U_{t-1}$. That is, these windows do not overlap. The probability of a discovery, or visiting an \emph{unknown} state-action pair, is at least $\delta_l$, so the expected number of discoveries per window is at least $\delta_l$.
+
+The expected number of windows per discovery is at most $1/\delta_l$, and since there are $H$ steps per window, the expected number of steps per discovery is $H / \delta_l$.
+
+Since there are at most $B C$ discoveries, the expected number of steps during discovery windows is $\frac 1 {\delta_l} H B C$.
+
+Since any steps taken while not in a discovery window must must be $\epsilon$-optimal, the expected number of sub-optimal steps is at most $\frac 1 {\delta_l} H B C$.
+
+\end{proof}
 
 \section{Bayesian inference}
 
