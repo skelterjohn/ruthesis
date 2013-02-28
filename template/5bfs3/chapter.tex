@@ -10,7 +10,7 @@
 
 \alg{Sparse Sampling}~\cite{kearns99b} works by recursively expanding a full search tree up to a certain depth $d$. At the root, each of the $A$ actions is used for sampling a constant number of times $C$, yielding a set of $A\cdot C$ children. Sparse sampling is then run on each of the children with a recursion depth one less than the root's. Once the tree is fully created, the leaves are each assigned a value of zero. Then, starting at the leaves, the values are backed up and combined via the Bellman equation, defining the parents' values, until the root's value is determined. The total number of nodes visited in this search tree is $(AC)^d$, making the algorithm impractical to run in all but the most trivial of domains.
 
-It is worth noting, however, that \alg{Sparse Sampling} is best known as one of the first reinforcement-learning planning algorithms that can achieve high accuracy with high probability using an amount of computation that is not a function of the size of the state space\footnote{This lack of dependence on the number of states assumes that sampling from the model can be done in constant time. In most real situations there is at least a logarithmic dependency on the number of states just for representing any given state.}. Because of this attractive property, it makes sense to select it or one of its variants as the planner for the infinitely large BAMDP.  \alg{Sparse Sampling} is the basis for a number of Monte-Carlo Tree Search (MCTS) algorithms, which are considerably faster in practice \cite{kocsis06,walsh10,wang05}. \note{ml: "[wel", jta: unfinished comment?}
+It is worth noting, however, that \alg{Sparse Sampling} is best known as one of the first reinforcement-learning planning algorithms that can achieve high accuracy with high probability using an amount of computation that is not a function of the size of the state space\footnote{This lack of dependence on the number of states assumes that sampling from the model can be done in constant time. In most real situations there is at least a logarithmic dependency on the number of states just for representing any given state.}. Because of this attractive property, it makes sense to select it or one of its variants as the planner for the infinitely large BAMDP.  \alg{Sparse Sampling} is the basis for a number of Monte-Carlo Tree Search (MCTS) algorithms, which are considerably faster in practice \cite{kocsis06,walsh10,wang05}.
 
 \alg{Sparse Sampling} is discussed in more detail in Chapter~\ref{sec:relmbbrl}.
 
@@ -56,7 +56,7 @@ P(\langle s', h + (s,a,s',r)\rangle, r | \langle s, h\rangle, a) &=& \int_M P(s'
 
 Here, the BAMDP's state-space is the set of belief-states that include the history of all transitions seen so far. Because of how the BAMDP's transition function is constructed, each possible next-state's history includes the transition from the previous state to the next state.
 
-BAMDPs, their construction, and their relation to Bayes-optimality are discussed in detail in Chapter~\ref{sec:intro}.
+BAMDPs, their construction, and their relation to Bayes-optimality are discussed in detail in Section~\ref{sec:intro:bayes-opt}.
 
 Since, with \alg{FSSS}, the next belief-states are only sampled and their likelihoods are never calculated, a simple generative process can be used:
 \begin{eqnarray}
@@ -68,13 +68,17 @@ This process is used whenever \alg{BFS3} or its subroutine \alg{FSSS} sample a n
 
 First, an MDP $M$ is sampled from the posterior $\phi|h$. Once it is sampled, then the next state and reward are sampled from $M$. Sometimes this posterior sampling can be computationally expensive, since inference is generally a hard probelm. The \alg{BFS3} algorithm can only work effectively if this step is fast. Fast posterior sampling is possible with many priors, including the very simple \prior{FDM}, but also more structured priors can be used with efficient inference --- all the priors used with \alg{BFS3} in Chapter~\ref{sec:experiments} have efficient posterior inference.
 
-To reconstruct the resulting belief-state, we pack the resulting concrete state $s'$ with the new history made by augmenting $h$ with $(s, a, s', r)$, resulting in a transition from belief-state $\langle s, h\rangle$ to $\langle s', h + (s,a,s',r)\rangle$. \note{jta: your annotation suggested I change this to "resulting in a transition belief-states $<s,h>$ and $<s',h+....$", and I don't get it} In many cases, the history $h$ can be summarized by a more compact sufficient statistic. For instance, with discrete-state and -action MDPs, only a histogram of next-states needs to be kept for each state-action pair, and the exact sequence that these transitions happened in is irrelevant.
+To reconstruct the resulting belief-state, we pack the resulting concrete state $s'$ with the new history made by augmenting $h$ with $(s, a, s', r)$, resulting in a transition from belief-state $\langle s, h\rangle$ to $\langle s', h + (s,a,s',r)\rangle$.  In many cases, the history $h$ can be summarized by a more compact sufficient statistic. For instance, with discrete-state and -action MDPs, only a histogram of next-states needs to be kept for each state-action pair, and the exact sequence that these transitions happened in is irrelevant.
 
 Figure~\ref{fig:bfs3} illustrates \alg{BFS3}'s process for each belief-state visited by the agent. In future steps through the environment, the agent may find itself in one of the reachable belief-states in the search tree --- all of the reachable belief-states represent one possible concrete state and history that, with some probability, may be the root of \alg{BFS3}'s search tree in some future situation. 
 
+\subsection{Choice of FSSS}
+
+Although it is consistent to use any sample-based planner for \alg{BFS3}, \alg{FSSS} is the choice because of a particular promise that it makes: with high probability, \alg{FSSS} will never underestimate the value of a state, even if it is unable to estimate it accurately. Other sample-based planners well-known in the reinforcement-learning literature, such as \alg{UCT}~\cite{kocsis06} or its continuous-space analog, \alg{HOOT}~\cite{mansley2011sample}, do not share this guarantee and it is important for the guarantees made by \alg{BFS3}. Currently, \alg{FSSS} is the only known algorithm that can satisfy the conditions in Section~\ref{sec:bfs3:pac-bamdp-informal}.
+
 \subsection{Algorithm}
 
-The \alg{BFS3} process is detailed in Algorithm~\ref{alg:bfs3}, which references Algorithm~\ref{alg:fs3} in Chapter~\ref{sec:relatad}. Every time the agent arrives in a new belief-state $\langle s, h\rangle$, it simulates each action $C$ times, to get a set of $C \times A$ next belief-states and rewards. Then, \alg{FSSS} is used to find the upper bound on the value of each of the next belief-states. Once their optimistic values are found, \alg{BFS3} will average all the sums of the discounted values and rewards together to get an estimate of the Bayes-expected value of taking that action, and choose the action that maximizes this quantity.
+The \alg{BFS3} process is detailed in Algorithm~\ref{alg:bfs3}, which references Algorithm~\ref{alg:fs3} in Chapter~\ref{sec:relmbbrl}. Every time the agent arrives in a new belief-state $\langle s, h\rangle$, it simulates each action $C$ times, to get a set of $C \times A$ next belief-states and rewards. Then, \alg{FSSS} is used to find the upper bound on the value of each of the next belief-states. Once their optimistic values are found, \alg{BFS3} will average all the sums of the discounted values and rewards together to get an estimate of the Bayes-expected value of taking that action, and choose the action that maximizes this quantity.
 
 All histories should only take into account the first $B$ transitions from a given state-action pair, where $B$ is the number of transitions required to have accurate posterior samples for any particular state-action. The exact value for $B$ is tied to the \bed-learnable condition in Section~\ref{sec:bfs3:pac-bamdp-informal}, condition~\ref{theorem:cond-acc}.
 
@@ -207,7 +211,9 @@ f_\epsilon(\epsilon_l, \epsilon_p)&=&\mbox{poly}(1/(1-\epsilon_l),1/\delta_c,1/\
 %\subsubsection{Note on $C \cdot A$}
 %The probability $1-\delta_{p}/(CA)$ is used because, for each step, \alg{BFS3} will invoke \alg{FSSS} $C \cdot A$ times, or $C$ times for each action.  This choice was made to ensure that all next states get enough resources to ensure accuracy when their dynamics are known. We use the union bound to say, with probability  $1-\delta_p$, \emph{all} such next states have accurate estimates.
 
-\note{ml: [it would be nice to have a note explaining the status of this conjecture.  My gut feeling is that it is false.  But perhaps some version of it could hold.  But, maybe a short section explaining what you've learned in trying to prove this conjecture would be worthwhile.] jta: it is definitely false, in general (I can construct a degenerate counter-example.)}
+There are counter-examples that show that this conjecture is, in general, not true. Consider an algorithm $\mathcal{A}$ that always finds the correct values for a deterministic MDP $m_1$ by examining a particular trajectory of length $N$---since $\mathcal{A}$ has no stochasticity of its own, every time it runs it will get the same trajectory. It so happens that the trajectory $\mathcal{A}$ examines will give it a correct estimate, but no others will. Let MDP $m_2$ be a slightly stochastic version of $m_1$. Now, that trajectory's likelihood may be as little as $(1-\epsilon_l)^N$, or the likelihood of getting the right outcome $N$ times in a row. As $N$ grows, the probability of getting that single trajectory that works for $\mathcal{A}$ shrinks.
+
+This counter-example is a pathalogical case, and it has been shown that there are many algorithms (\alg{FSSS}, \alg{Sparse Sampling}, \alg{UCT}, and others) that are robust to small differences in the transition function, in general.
 
 \subsection{PAC-MDP behavior in the BAMDP}
 
@@ -278,9 +284,59 @@ Condition~\ref{pacmdp-acc} holds because of Prerequisite~\ref{sa-bound} (the acc
 
 Condition~\ref{pacmdp-opt} holds because of our definition of known and unknown belief-states and the behavior of \alg{FSSS}. Known belief-states have accurate values, and unknown belief-states have optimistic values. No belief-state ever has a pessimistic value.
 
-To make use of the PAC-MDP proof framework from Chapter~\note{which chapter?}, we must define a \emph{class} of state-action pairs. In this case, since a state in the BAMDP is belief-states $\langle s, h \rangle$, we will say two state-action pairs $(\langle s_1, h_1 \rangle, a_1)$ and $(\langle s_2, h_2 \rangle, a_2)$ are in the same class if and only if $s_1=s_2$ and $a_1=a_2$. That is, only the concrete state and action matter for classification. The history is ignored.
+To make use of the PAC-MDP Theorem from Chapter~\ref{sec:introduction}, we must define a \emph{class} of state-action pairs. In this case, since a state in the BAMDP is belief-states $\langle s, h \rangle$, we will say two state-action pairs $(\langle s_1, h_1 \rangle, a_1)$ and $(\langle s_2, h_2 \rangle, a_2)$ are in the same class if and only if $s_1=s_2$ and $a_1=a_2$. That is, only the concrete state and action matter for classification. The history is ignored.
 
 With this choice of \emph{classes}, the Accuracy Condition is satisfied by observing that if $B$ examples of $(\langle s_0, h \rangle,a_0)$ have been observed, the history of the last one contains $B$ transitions from concrete state $s_0$ using action $a_0$, and therefore its dynamics are known to within $\epsilon_l$.
+
+Also, \alg{BFS3} does not completely fit the description of the agent defined by the PAC-MDP Theorem: it does not choose a policy that maximizes expected value on an MDP whose transition function is defined by the agent's estimated transition function for all \emph{known} state-action pairs. Instead it follows a policy that maximizes expected value on an MDP whose transition function for the agent's current state and action is the estimated transition function, but then defines the value for all other states to be the value estimated by \alg{FSSS}.
+
+For ease of notation, let $b_t = \langle s_t, h_t \rangle$ be a belief state.
+
+Recall that at time-step $t$, \alg{BFS3}'s policy is defined by a one-step simulation and a call out to \alg{FSSS}:
+\begin{eqnarray}
+\pi_t(b_t) &=& \argmax_a Q_t(b_t,a),\\
+Q_t(b_t,a) &=& R_t(b,a) + \gamma \sum_{b'} T_t(b'|s,a) \mbox{FSSS}(b',X).
+\end{eqnarray}
+
+\newtheorem*{bfs3thm}{BFS3 PAC-BAMDP Theorem}
+\begin{bfs3thm}
+The expected number of sub-$\epsilon$-optimal steps that \alg{BFS3} will take in the BAMDP is no more than $\frac 1 {\delta_l} H B C$, where
+\begin{eqnarray}
+\epsilon &=&,\\
+\delta_l &=&,\\
+H &=&.
+\end{eqnarray}
+\end{bfs3thm}
+
+\begin{proof}
+Similarly to the proof of the PAC-MDP Theorem in Chapter~\ref{sec:introduction}, this is proved in two parts. Let $D_t$ be the event that the agent makes a discovery during a window of $H$ steps, starting at step $t$. For any window of $H$ steps beginning at step $t$, the probability $P(D_t)$ is either large enough to make a discovery likely (and the number of discoveries is bounded), or small enough that $\pi_t(b_t)$ is an $\epsilon$-Bayes-optimal action, or the $\epsilon$-optimal action in the BAMDP.
+
+The probability threshold we will consider is $\delta_l$, which will be chosen to be the largest likelihood that allows an $\epsilon$-optimal policy. Let $\delta_l = \frac {\epsilon - (\epsilon_f + s(\epsilon_T,\epsilon_R) +2 \epsilon_H)} {\Vmax}$. Then, Lemma~\ref{sec:pacmdp:lemma:bad-steps} bounds the expected number of steps where $P(D_t)>\delta_l$.
+
+Lemma~\ref{sec:bfs3:lemma:opt-steps} shows that when $P(D_t)\leq \delta_l$, $a_t$ is an $\epsilon$-Bayes-optimal action.
+\end{proof}
+
+\begin{lemma}
+\label{sec:bfs3:lemma:opt-steps}
+Define $T(b'|b,a)$ to be the true next-belief-state transition probabilities, where
+\begin{eqnarray}
+T(b'|b,a) = T(\langle s', h+(s,a,s')\rangle|\langle s, h \rangle, a) &=& \int_m \phi(m|h) T_m(s'|s,a) dm.
+\end{eqnarray}
+
+Let $B_t$ be an MDP with the following quantities defined:
+\begin{eqnarray}
+T_{B_t}(b'|b_t,a) &=& T(b'|b_t,a),\\
+R_{B_t}(b_t,a) &=& R(b_t,a),\\
+V_{B_t}(b) &=& \mbox{FSSS}(b).
+\end{eqnarray}
+That is, the transition and reward functions involving the current belief-state $b_t$ use the true dynamics from the BAMDP. The value of every belief-state other than the one that the agent currently resides in is found by using \alg{FSSS}. This differs from the MDP that \alg{BFS3} uses to choose actions only in the first step of the simulation: \alg{BFS3} will use a Monte-Carlo estimate of the transition and reward functions instead of the true functions.
+
+We can bound the difference between $Q_t(b_t,a)$ and $Q_{B_t}(b_t,a)$:
+\begin{eqnarray}
+|Q_t(b_t,a) - Q_{B_t}(b_t,a)| \leq \epsilon_c,
+\end{eqnarray}
+where $\epsilon_c$ is \note{$\epsilon_c$ is well-defined and easy to derive, just not right now. it's a function of the number of next-states $C$ and the sparse sampling paper lists it.}
+\end{lemma}
 
 \subsection{How accurate, and how likely?}
 

@@ -1,4 +1,6 @@
-In this chapter I will discuss several different priors that can be used for model inference in a reinforcement--learning setting. There are two basic types of distributions that will be discussed: MDP distributions and experience distributions. The result of sampling from an MDP distribution is an entire MDP which can be used with various Bayesian algorithms to attack the reinforcement--learning problem. An experience distribution is one whose posterior is a theoretical transition in the agent's world.
+In this chapter I will discuss several different priors that can be used for model inference in a reinforcement--learning setting. The non-parametric models in Section~\ref{models:npm}, as well as the environment-specific models in Chapter~\ref{sec:experiments}, are novel work. The analysis in Section~\ref{sec:models:complex}, on the sample complexity of models and priors, is a contribution of this dissertation. Before this work, most Bayesian approaches to reinforcement learning focused on the simple and easy-to-work with \prior{Flat Dirichlet Multinomial}, which is detailed in Section~\ref{sec:models:fdm}. There are exceptions that will be discussed in Chapter~\ref{sec:relmbbrl}~\cite{strens00,sorg10,wilson07}, and the models discussed in this chapter can work equally well with any of those exceptions.
+
+There are two basic types of distributions that will be discussed: MDP distributions and experience distributions. The result of sampling from an MDP distribution is an entire MDP which can be used with various Bayesian algorithms to attack the reinforcement--learning problem. An experience distribution is one whose posterior is a theoretical transition in the agent's world.
 
 An experience distribution $\Theta$ is a distribution over possible next state/reward pairs $s',r$, given a possible history $h$, state $s$, and action $a$:
 \begin{eqnarray}
@@ -25,6 +27,7 @@ All of the model-based Bayesian reinforcement learning algorithms discussed in t
 
 
 \section{Dirichlet models}
+\label{sec:models:fdm}
 
 One of the simplest Bayesian models for reinforcement learning is the \prior{Flat Dirichlet Multinomial}, or \prior{FDM}. The \prior{FDM} is a prior for discrete state and action spaces with independent next-state distributions for each state-action pair. That is, next-state observations from one particular state and action gives no information about the next-state distribution for some other state and action.
 
@@ -107,11 +110,11 @@ Section~\ref{models:npm} demonstrates how to automatically tie different states 
 
 Similarly to the Dirichlet model's easy relation with discrete state and action spaces, a Gaussian model can be used to provide priors for continuous spaces. If an environment's dynamics can be modeled with a Gaussian next-state or outcome function, there are convenient priors that can be used to make inferences.
 
-\note{ml: the connection between priors and inference and learning isn't spelled out here.  is it elsewhere? jta: yes, in the intro} For discrete action domains, learning the dynamics for each action can be considered a separate problem. Section~\ref{models:npm} discusses methods to tie information from different actions and different states together, but for now we'll study the simpler learning problem where each action can be considered in isolation.
+For discrete action domains, learning the dynamics for each action can be considered a separate problem. Section~\ref{models:npm} discusses methods to tie information from different actions and different states together, but for now we'll study the simpler learning problem where each action can be considered in isolation.
 
 The simplest case is when the next-state is drawn directly from a Gaussian distribution. A more interesting case has an outcome drawn from a Gaussian distribution, and then the next-state is derived from applying the outcome to the previous state. The inference problem, where the agent learns the mean and variance of the Gaussian distribution in question, is the same either way. The only difference is what data the inference engine is given as examples.
 
-An easy version of this problem is the unknown mean, known variance prior\note{ml: [show this] jta: the rest of this section is showing this}. Given some covariance $\Sigma$, and a mean prior of $N(\mu_\mu, \Sigma_\mu)$, we can concisely describe the model as follows:
+An easy version of this problem is the unknown mean, known variance prior: given some covariance $\Sigma$, and a mean prior of $N(\mu_\mu, \Sigma_\mu)$, we can concisely describe the model as follows:
 \begin{eqnarray}
 \mu_a &\sim& N(\mu_\mu, \Sigma_\mu),\\
 o_t &\sim& N(\mu_{a_t}, \Sigma),\\
@@ -120,7 +123,7 @@ s_{t+1} &=& f(s_t, o_t).
 
 Here, $\mu_\mu$ is the prior mean for the latent variable $\mu_a$, and $\Sigma_\mu$ is the prior covariance for $\mu_a$. $a_t$ is the action performed by the agent on the $t^{\mbox{\small th}}$ timestep, and $o_t$ is the outcome observed as a result of that action. The next state, $s_{t+1}$ can be derived by applying the outcome function $f$ to the previous state $s_t$ and outcome.
 
-Given this model and a history $s_0, a_0, o_0, ..., s_T, a_T, o_T$, a posterior distribution for latent model variables $\mu_a$ can be inferred, for all actions $a \in A$. Since the Gaussian distribution is conjugate prior to the known-covariance multivariate normal distribution\note{show this}, there is a closed-form solution for its posterior\reply~\cite{fink1997compendium}:
+Given this model and a history $s_0, a_0, o_0, ..., s_T, a_T, o_T$, a posterior distribution for latent model variables $\mu_a$ can be inferred, for all actions $a \in A$. Since the Gaussian distribution is conjugate prior to the known-covariance multivariate normal distribution, there is a closed-form solution for its posterior~\cite{fink1997compendium}:
 
 \begin{eqnarray}
 \Sigma' &=& \left(\Sigma_u^{-1}+n\Sigma^{-1}\right)^{-1},\\
@@ -282,7 +285,9 @@ o_{s,a} &\sim& Mult(\theta_{C_s,a}).
 
 In this model, $C$ is the set of assignments of states to clusters. So, $C_1$ is the number representing the cluster to which $s_1$ belongs. The quantity $\theta_{z,a}$ is the parameter to the dynamics for states in cluster $z$ when performing action $a$. Finally, the outcome histogram $o_{s,a}$ is drawn from a multinomial parameterized by the $\theta$ corresponding to the cluster containing the state in question.
 
-Using this model, we can sample dynamics from the posterior $P(\theta, C|o)$ to get a guess about the underlying MDP. Because the Dirichlet distribution is conjugate to the multinomial distribution, the likelihood $P(o|C)$ can be evaluated efficiently. Using that likelihood, approximation techniques can be used to effectively sample the posterior $P(C|o)\propto P(o|C)P(C)$, and then sampling from $P(\theta|C,o)$ is straightforward.\note{Diagram?  Example?  Something to solidify this complex idea?} \note{pp:This is not clear.  Please elaborate and provide a Figure and/or some derivation.}
+Using this model, we can sample dynamics from the posterior $P(\theta, C|o)$ to get a guess about the underlying MDP. Because the Dirichlet distribution is conjugate to the multinomial distribution, the likelihood $P(o|C)$ can be evaluated efficiently. Using that likelihood, approximation techniques, such as Gibbs sampling, can be used to effectively sample the posterior $P(C|o)\propto P(o|C)P(C)$, and then sampling from $P(\theta|C,o)$ is straightforward.
+
+The posterior sampling process, using Gibbs sampling, is as follows. Start with a guess for the value of $C$. Then, choose one state $i$ to move to different cluster. For all possible clusters $j$ it could belong to, including a new one, find the likelihood $P(C^{i,j}|o)$, where $C^{i,j}$ is the same as $C$ except that state $i$ is now in cluster $j$. Assign $i$ to cluster $j$ with probability proportional to $P(C^{i,j}|o)$. Then, move to the next state. Continue sweeping through all the states, reassigning them to different clusters, until the distribution is suitably mixed~\footnote{In practice, the number of sweeps required is not tremendously large, but it is difficult to say anything concrete about how many are needed.} Once $C$ is chosen, then each cluster's multionimial is sampled from a Dirichlet whose posterior uses the evidence from the states in that cluster.
 
 \subsection{Gaussian mixture models}
 
@@ -348,9 +353,11 @@ P(x|\alpha) &=& \int_\theta Mult(x|\theta)Dir(\theta|\alpha)d\theta\\
 \end{eqnarray*}
 \subsubsection{Parameter Sampling}
 
-Given a particular clustering assignment $C$, the parameters for individual clusters are independent. \note{pp: Are they really independent or conditionally independent given the higher level hyperparameters of the CRP? jta: i felt this sentence made it clear that they were conditionally independent given C} For the continuous features (\emph{state}, \emph{outcome} and \emph{reward}) the normal parameters can be sampled from the Inverse Wishart posterior. For the discrete feature (\emph{terminal} indicator) the Multinomial parameters can be sampled from the Dirichlet posterior. Through this process of finding a clustering and using posterior sampling to find cluster parameters, a sample is drawn from the \prior{ROAR} posterior.
+Given a particular clustering assignment $C$, the parameters for individual clusters are independent. For the continuous features (\emph{state}, \emph{outcome} and \emph{reward}) the normal parameters can be sampled from the Inverse Wishart posterior. For the discrete feature (\emph{terminal} indicator) the Multinomial parameters can be sampled from the Dirichlet posterior. Through this process of finding a clustering and using posterior sampling to find cluster parameters, a sample is drawn from the \prior{ROAR} posterior.
 
 \subsubsection{Instance Sampling and Trajectory Sampling}
+
+\label{sec:models:roar:traj-sample}
 
 Once a model $M$ is sampled from the \prior{ROAR} posterior, simulating experience is straightforward. Outcomes, rewards and termination indicators $\left<o,r,\phi\right>$ can be sampled from the model, conditioned on some particular state and action $\left<s,a\right>$. Since $\left<o,r,\phi\right>$ is independent of $\left<s,a\right>$, given a cluster, the algorithm must first choose such a cluster $c$ according to $P(c|s,a,M)\propto P(s|c,M)P(c|M,a)$. The outcome, reward and terminal indicator are then sampled individually according to $P(o|c,M)$, $P(r|c,M)$ and $P(\phi|c,M)$.
 
@@ -358,21 +365,29 @@ It is important to note that the cluster $c$ chosen in this step does not have t
 
 For planning, dealing directly with the Gaussian mixture model described in this section is inconvenient. It is much simpler to sample transitions directly, using Monte-carlo simulations, rather than deal with their distributions. To generate $n$ instances from the model, we sample from the distribution $P(I_1,...,I_n|M,s_1,a_1,...,s_n,a_n)$. That is, we jointly draw a collection of new instances $I_t=\left<s_t,a_t,o_t,r_t,\phi_t\right>$, conditioned on the states and actions that make them up. By doing so, we can generate the outcomes, rewards and termination signals necessary for our planner.
 
-The distribution can be broken down according to specific instances to be $$\prod_{j=1}^n P(I_j|M,I_1,...,I_{j-1},s_j,a_j).$$ That is, the distribution of an instance $I_j$ depends on all previous instances drawn\note{pp: This isn't clear.}\reply{: each future sample is conditioned on the previous samples, as if they were observations. This sampling process creates some consistency in parts of the state space with little or no data.}
+The distribution can be broken down according to specific instances to be $$\prod_{j=1}^n P(I_j|M,I_1,...,I_{j-1},s_j,a_j).$$ That is, the distribution of an instance $I_j$ depends on all previous instances drawn: each future sample is conditioned on the previous samples, as if they were observations. This sampling process creates some consistency in parts of the state space with little or no data.
 
-Although it is tempting to sample the instances i.i.d., this shortcut will lead to all instances in unexplored areas of the state space being sampled directly from the prior\footnote{In the generative model, the means for new cluster outcome and reward distributions are drawn from a uniform distribution. In practice, using a mean of zero for the first sample, and the sample mean thereafter, is effective.}. Doing so causes the unexplored areas to appear the same as the other unexplored areas in every model sampled. When they are sampled jointly as described, the \emph{distributions} for those unexplored areas are sampled from the prior, but the \emph{instances} are sampled from those distributions. As a result the unexplored areas are distinct from one another and from those in other models. There is same-model consistency in these areas that is not achieved otherwise.\note{ml: I don't think there's enough detail here to really inform anyone.  More concreteness is key}
-
-\note{jta: use the DPGMM and river-swim figures to illustrate}
+Although it is tempting to sample the instances i.i.d., this shortcut will lead to all instances in unexplored areas of the state space being sampled directly from the prior\footnote{In the generative model, the means for new cluster outcome and reward distributions are drawn from a uniform distribution. In practice, using a mean of zero for the first sample, and the sample mean thereafter, is effective.}. Doing so causes the unexplored areas to appear the same as the other unexplored areas in every model sampled. When they are sampled jointly as described, the \emph{distributions} for those unexplored areas are sampled from the prior, but the \emph{instances} are sampled from those distributions. As a result the unexplored areas are distinct from one another and from those in other models. There is same-model consistency in these areas that is not achieved otherwise. Figure~\ref{sec:models:riverswim} shows how underrepresented parts of the state-space can have consistent estimates.
 
 
-\section{Learnability}
+\begin{figure}[t]
+\begin{center}
+\includegraphics[width=0.9\linewidth]{figures/riverswim.pdf}
+\caption{\env{Riverswim} is a simple environment where a fish tries to make its way up the river, and can take one of three actions: red, green, or blue. In these figures, the horizontal axis represents a state in the environment: further to the right means further up the river. The vertical axis represents a possible outcome: further up means that an action took the fish futher up the river, with a point on the origin meaning that the fish did not move. Each dot represents an action taken, with its horizontal position being where the fish was, and the vertical position being how far it moved. The top figure is experience in the actual environment; every dot represents an action that the agent took, and feedback it got from the environment. The bottom figure is experience sampled from the \prior{ROAR} posterior. As a human, one can see that it matches very closely the dynamics from the original environment, especially where there are more samples. Where there are fewer samples, to the right, \env{ROAR} has less to go on and its estimates are less accurate. However, because each sample is conditioned on previous samples, there are still visible clusters to the right. \env{ROAR} is making these up, and although they may be inaccurate, they are self-consistent and can be used to speculate about unexplored parts of the statespace without simply indicating that they are all drawn identically from the prior.}
+\label{sec:models:riverswim}
+\end{center}
+\end{figure}
 
 
-Since a common subgoal for a reinforcement-learning agent is to learn a model, it is useful to quantify how learnable a model is in the first place. It is certainly true that there are some combinations of model priors and ``true'' models\footnote{That is, models from which the observations are sampled.} that do not allow learning of the model without an unreasonably large number of samples.
+\section{Sample complexity}
+\label{sec:models:complex}
+
+
+Since a common subgoal for a reinforcement-learning agent is to learn a model, it is useful to quantify the sample complexity of a model in the first place. It is certainly true that there are some combinations of model priors and ``true'' models\footnote{That is, models from which the observations are sampled.} that do not allow learning of the model without an unreasonably large number of samples.
 
 \begin{example}
 
-Consider the coin flipping experiment in Chapter~\ref{sec:intro}, Section~\ref{sec:intro:coin-flipping}. Using a variable $x$ instead of the concrete likelihood $\frac{9990}{10000}$, we get the model
+Consider the coin flipping experiment in Section~\ref{sec:intro:coin-flipping}. Using a variable $x$ instead of the concrete likelihood $\frac{9990}{10000}$, we get the model
 \begin{eqnarray}
 \label{sec:models:eqn:coinbag}
 \phi &=& \left\{\begin{array}{lll}
@@ -387,12 +402,12 @@ For any given probability in Equation~\ref{intro:eqn:coinbag}, there is a number
 \begin{eqnarray}
 x &=& \frac{1}{2^n+1}.
 \end{eqnarray}
-Given this relation, we can say something about how \emph{learnable} a biased coin is with the given prior.
+Given this relation, we can say something the sample complexity of a biased coin is with this prior.
 
 
-With the coin flipping example, we give only two possibilities in the prior: double-headed or unbiased. These two coins are not $\epsilon$-close to each other, for any reasonable $\epsilon$, since the likelihood of \emph{heads} for the double-headed coin is $0.5$ away from that of the unbiased coin, and the same distance for tails. If the posterior has a probability of at least $\delta$ of sampling an unbiased coin after $B$ flips, I declare the double-headed coin to not be \bed-learnable with the prior in Equation~\ref{sec:models:eqn:coinbag}.
+With the coin flipping example, we give only two possibilities in the prior: double-headed or unbiased. These two coins are not $\epsilon$-close to each other, for any reasonable $\epsilon$, since the likelihood of \emph{heads} for the double-headed coin is $0.5$ away from that of the unbiased coin, and the same distance for tails. If the posterior has a probability of at least $\delta$ of sampling an unbiased coin after $B$ flips, the double-headed coin has a sample complexity greater than $B$, with respect to the prior in Equation~\ref{sec:models:eqn:coinbag}.
 
-Choosing $\epsilon<0.5$, so that an unbiased coin is not considered an $\epsilon$-approximation of a double-headed coin, there is a relation between the number of samples $B$, the prior likelihood $x$, and the probability of failure $\delta$. We need to choose $B$ such that the posterior likelihood for the double-headed coin is at least $1-\delta$. That is,
+Choosing $\epsilon<0.5$, so that an unbiased coin is not considered an $\epsilon$-approximation of a double-headed coin, there is a relation between the number of samples $B$, the prior likelihood $x$, and the probability of failure $\delta$. We need to find $B$ such that the posterior likelihood for the double-headed coin is at least $1-\delta$. That is,
 \begin{eqnarray}
 \frac
  {P(\rho=1|H=B,n=B)}
@@ -436,14 +451,12 @@ B &\geq& \log_2\left(\frac
 
 Then, if we set $x=0.999$ and $\delta=0.001$, we find that $B\geq20$ is sufficient.
 
-Correspondingly, the double-headed coin is not \bed-learnable with $\phi$ for any $\epsilon<0.5$, $\delta=0.001$, and $B<20$.
-
 
 \end{example}
 
-The rest of this section will attempt to formalize the concept of \bed-learnability.
+The rest of this section will attempt to formalize the concept of sample complexity for Bayesian machine learning.
 
-\subsection{Learnability of the model for a stochastic function}
+\subsection{Sample complexity of the model for a stochastic function}
 
 Given
 \begin{itemize}
@@ -456,7 +469,7 @@ Given
 \item a stochastic function $f_{\eta_0}:X\rightarrow\Pi(Y)$,
 \item and some prior distribution $\phi \in \Pi(P)$ over models,
 \end{itemize}
-we say that a specific model $\eta_0 \in P$ is $B$-$\sigma$-$\epsilon$-$\delta$-learnable with $\phi$ if the process
+we say that a specific model $\eta_0 \in P$ has a sample complexity of $B$ with $\phi$ if the process
 \begin{eqnarray}
 \bar y_i &\sim& f_{\eta_0}(\bar x_i),\\
 \tilde\eta &\sim& \phi|(\bar x, \bar y),
@@ -467,57 +480,56 @@ results in the condition
 \end{eqnarray}
 holding with probability at least $1-\delta$.
 
-This guarantee can easily be adapted for a discrete set $X$ whose members cannot be generalized. In this case, the similarity metric $\sigma$ is the Kronecker delta, where the result is $1$ if the two values are identical, and $0$ otherwise. With this metric, there must be at least $B$ examples of $x_0$ in the set of example values. We can call this guarantee simply \bed-learnable, with the omission of $\sigma$ meaning it is implicitly the Kronecker delta.
+Note that this must hold true for any $\bar x$, and that this $\bar x$ is chosen before-hand.
+
+This guarantee can easily be adapted for a discrete set $X$ whose members cannot be generalized. In this case, the similarity metric $\sigma$ is the Kronecker delta, where the result is $1$ if the two values are identical, and $0$ otherwise. With this metric, there must be at least $B$ examples of $x_0$ in the set of example values. 
 
 
 To map this setting to the coin-flip example above, consider the set $X$ to be the set of all coins, double-headed or not. Then, we need examples of flips from the coins in that set such that the coins are sufficiently similar to the one we're thinking about, $x_0$. In this case, we only care about coins that are exactly the coin we're trying to estimate, so we need $B$ examples of that coin. The set $Y$ will be the set $\{\mbox{heads},\mbox{tails}\}$, and $\eta_0$ is a model indicating that coin $x_0$ is double-headed. As a result, flipping the double-headed coin, or calling $f_{\eta_0}(x_0)$, should result in heads each time.
 
-Intuitively, if a model is $B$-$\sigma$-$\epsilon$-$\delta$-learnable, then we only need $B$ evidence (according to the similarity metric $\sigma$) at a given point to have a posterior sample be $\epsilon$-accurate at that point with probability $1-\delta$.
+Intuitively, if a model has a sample complextiy of $B$, then we only need $B$ evidence (according to the similarity metric $\sigma$) at a given point to have a posterior sample be $\epsilon$-accurate at that point with probability $1-\delta$.
 
-In Chapter~\ref{sec:boss} and Chapter~\ref{sec:bfs3}, I will show that this learnability guarantee is a sufficient condition for the posterior accuracy conditions in the analysis of two model-based Bayesian reinforcement-learning algorithms\note{ml:[can you provide an example, even a simple one, for which the guarantee is possible?]}. In the later sections of this chapter, I will describe how to fit different types of MDPs, and their priors, to this guarantee.
+In Chapter~\ref{sec:boss}, I will show that this sample complexity guarantee is a sufficient condition for the posterior accuracy conditions in the analysis of a model-based Bayesian reinforcement-learning algorithm. In the later sections of this chapter, I will describe how to fit different types of MDPs, and their priors, to this guarantee.
 
-\subsection{Learnability of the transition function for a discrete-state, discrete-action MDP}
+\subsection{Sample complexity of the transition function for a discrete-state, discrete-action MDP}
 
-An MDP $m_0$ can be considered the model for a stochastic function. The transition function $T_{m_0}:S \times A \rightarrow S$ is a function using the MDP components as its model \note{ml:[the model of a transition function?  I'm finding the terminology confusing]}. Specifically, $T_{m_0}(s,a)$ is a multinomial distribution parameterized by an unknown $\theta_0^{s,a}$ vector, which has a prior distribution $\phi$. The goal is to then address how $B$-learnable a particular vector $\theta_0^{s,a}$ is, with samples from the stochastic function $T_{m_0}(s,a) = \mbox{Mult}(\theta_0^{s,a})$.
+An MDP $m_0$ can be considered the model for a stochastic function. The transition function $T_{m_0}:S \times A \rightarrow S$ is a function using the MDP components as its model. Specifically, $T_{m_0}(s,a)$ is a multinomial distribution parameterized by an unknown $\theta_0^{s,a}$ vector, which has a prior distribution $\phi$. The goal is to then evaluate the sample complexity of a particular vector $\theta_0^{s,a}$ is, with samples from the stochastic function $T_{m_0}(s,a) = \mbox{Mult}(\theta_0^{s,a})$.
 
-An MDP $m_0$'s transition function is \bed-learnable when
+Given
 \begin{itemize}
 \item $X$ is the set of all state-action pairs $S\times A$,
 \item $Y$ is the set of states $S$,
 \item $x_0$ is some state-action pair $(s_0, a_0)$,
-\item $\bar x$ is a vector of state-action pairs that contains at least $B$ instances of $(s_0,a_0)$,
-\item $P$ is the set of all possible multinomials for each of the state-action pairs that the MDP considers, \note{ml: [MDPs consider?]}
+\item $\bar x$ is any vector of state-action pairs that contains at least $B$ instances of $(s_0,a_0)$,
+\item $P$ is the set of all possible multinomials for each of the state-action pairs in the MDP,
 \item and $f_{\eta_0}$ is $T_{m_0}$, or the transition function of the true MDP $m_0$,
 \end{itemize}
-the process
+when the process
 \begin{eqnarray}
 s'_i &\sim& \mbox{Mult}(\theta_0^{s_i a_i}),\\
 \tilde \theta_{s,a} &\sim& \phi|(s_1,a_1,s'_1),(s_2,a_2,s'_2),...,(s_n,a_n,s'_n),
 \end{eqnarray}
 
- \note{ml: [is that the same as xbar?]}
 
-results in the condition
+results in a posterior sample satisfying
 \begin{eqnarray}
 \forall_{s'\in S} |\tilde\theta_{s_0 a_0}(s') - \theta^0_{s_0 a_0}(s')| & \leq & \epsilon,
 \end{eqnarray}
-with probability at least $1-\delta$.
+with probability at least $1-\delta$, we can say that the MDP $m_0$'s transition function has a sample complexity of $B$.
 
-\note {ml: [needs a wrap up sentence.  "we call this blah." or "we will consider blah".  I am not sure what I should retain from this block of symbols.]}
-
-\subsubsection{Learnability of an MDP using the Flat Dirichlet Multinomial}
+\subsubsection{Sample complexity of an MDP using the Flat Dirichlet Multinomial}
 
 The \prior{Flat Dirichlet Multinomial} prior, or \prior{FDM}, described in Chapter~\ref{sec:models}, is one of the simplest priors for a discrete-state, discrete-action MDP. With the \prior{FDM} prior, the transition function for each state is treated as an independent problem where the parameter $\theta_0$ is learned from a set of samples from $\mbox{Mult}(\theta_0)$, and $\theta \sim \mbox{Dir}(\alpha)$.
 
-We can then simplify the analysis of a model with the \prior{FDM} prior's learnability to that of the learnability of some random simplex $\theta_0$ with a Dirichlet prior.
+We can then simplify the analysis of a model with the \prior{FDM} prior's sample complexity to that of the sample complexity of some random simplex $\theta_0$ with a Dirichlet prior.
 
 \begin{example}
 
-Let $\alpha=(1, 1)$ and $\theta_0=(\frac 1 2, \frac 1 2)$. This problem is the same as the learnability of an unbiased coin with a uniform prior over its bias (that is, an unbiased coin is just as likely as a double-headed coin, which is just as likely as a coin that lands heads $2/3$ of the time, etc.).
+Let $\alpha=(1, 1)$ and $\theta_0=(\frac 1 2, \frac 1 2)$. This problem is the same as the sample complexity of an unbiased coin with a uniform prior over its bias (that is, an unbiased coin is just as likely as a double-headed coin, which is just as likely as a coin that lands heads $2/3$ of the time, etc.).
 
-We can resolve the question of learnability for this prior by answering the question of how many times we need to flip this biased coin such that our posterior samples are accurate.
+We can resolve the question of the sample complexity for this prior by answering the question of how many times we need to flip this biased coin such that our posterior samples are accurate.
 
-Let $\epsilon = 0.1$ and $\delta = 0.1$. Then, for the unbiased coin to be \bed-learnable, we need to choose a $B$ that is high enough so that $90\%$ of the time when we perform the experiment of flipping the coin $B$ times and sampling from the posterior, we get a coin with a heads likelihood in $[0.4,0.6]$ and a tails likelihood in $[0.4,0.6]$.
+Let $\epsilon = 0.1$ and $\delta = 0.1$. Then, for the unbiased coin to have a sample complexity of $B$, we need to choose a $B$ that is high enough so that $90\%$ of the time when we perform the experiment of flipping the coin $B$ times and sampling from the posterior, we get a coin with a heads likelihood in $[0.4,0.6]$ and a tails likelihood in $[0.4,0.6]$.
 
 Since the Multinomial distribution with two outcomes is the Binomial distribution, and the Dirichlet distribution on the two-dimensional simplex is the Beta distribution, we can use those distributions in our analysis. That is, given the process
 \begin{eqnarray}
@@ -528,7 +540,11 @@ choose a value $B$ such that
 \begin{eqnarray}
 P(0.4\leq \tilde \rho\leq 0.6)&\geq& 1-\delta,\\
 %
-\sum_{H=0}^B \mbox{Bin}(H|\rho=0.5,n=B) \int_{\tilde \rho=0.4}^{0.6} \mbox{Beta}(\rho|\alpha=H+1,\beta=B-H+1)&\geq& 1-\delta,\\
+\begin{array}{ll}
+&\sum_{H=0}^B \mbox{Bin}(H|\rho=0.5,n=B)\\
+\cdot &\int_{\tilde \rho=0.4}^{0.6} \mbox{Beta}(\rho|\alpha=H+1,\beta=B-H+1),
+\end{array}
+&\geq& 1-\delta\\
 %
 \label{sec:guarantees:fdm-likelihood}
 \sum_{H=0}^B {B \choose H} \frac 1 {2^B}
@@ -539,9 +555,9 @@ P(0.4\leq \tilde \rho\leq 0.6)&\geq& 1-\delta,\\
  \end{array}
 \right]&\geq& 1-\delta,
 \end{eqnarray}
-where $I_p(\alpha,\beta)$ is the regularized incomplete gamma function, and $\int_0^p\mbox{Beta}(p|\alpha,\beta) dp = I_p(\alpha,\beta)$. \note{ml: [any suggestions on where to go for background reading?]}
+where $I_p(\alpha,\beta)$ is the regularized incomplete gamma function, and $\int_0^p\mbox{Beta}(p|\alpha,\beta) dp = I_p(\alpha,\beta)$.
 
-The smallest $B$ that satisfies Equation~\ref{sec:guarantees:fdm-likelihood} can be found numerically, and happens to be $21$. As a result, the unbiased coin is \bed-learnable with the $\mbox{Beta}(1,1)$ prior with $B=21$, $\epsilon=0.1$, and $\delta=0.1$.
+The smallest $B$ that satisfies Equation~\ref{sec:guarantees:fdm-likelihood} can be found numerically, and happens to be $21$. As a result, the unbiased coin has a sample complexity of $B=20$ with the $\mbox{Beta}(1,1)$ prior, for $\epsilon=0.1$ and $\delta=0.1$.
 
 \end{example}
 
@@ -556,22 +572,22 @@ In general, for any hyperparameter $\alpha$, set of states $S$, and true model $
 \end{eqnarray}
 Although the analysis is difficult, numerical techniques can be used to find the smallest value $B$ for a given $\epsilon$ and $\delta$.
 
-\subsection{Prior learnability}
+\subsection{Sample complexity of the prior}
 
-So far, this chapter has discussed the learnability of a particular ``true'' model for a given prior.
+So far, this chapter has discussed the sample complexity of a particular ``true'' model for a given prior.
 
-That is, if we start with $\epsilon$, $\delta$, $\phi$, and $\eta_0$, we can imagine a function $B(\eta_0,\phi,\epsilon,\delta)$ that tells us how many samples are required to learn that model, given our accuracy constraints, desired likelihood of success, and prior distribution. \note{ml: [why change the definition now?  maybe you should use this definition from the beginning.  instead of calling it 'learnability' it could be 'sample complexity' say] jta: because i need *both* model learnability and prior learnability}
+That is, if we start with $\epsilon$, $\delta$, $\phi$, and $\eta_0$, we can imagine a function $B(\eta_0,\phi,\epsilon,\delta)$ that tells us how many samples are required to learn that model, given our accuracy constraints, desired likelihood of success, and prior distribution.
 
-It also makes sense to talk about the expected learnability, given a prior. The learnability of a prior is
+It also makes sense to talk about the expected sample complexity, given a prior. The sample complexity of a prior is
 \begin{eqnarray}
 L(\phi,\epsilon,\delta)
 &=&
 \int_{\eta_0} \phi(\eta_0) B(\eta_0,\phi,\epsilon,\delta) d\eta_0.
 \end{eqnarray}
 
-In other words, the learnability of a prior is the expected learnability of a model sampled from that prior.
+In other words, the sample complexity of a prior is the expected sample complexity of a model sampled from that prior.
 
-Although the learnability is difficult to express exactly, it is related to the probability of success. If, with $\bar x:\sum_i \sigma(x_0,{\bar x}_i)\geq B$,
+Although the sample complexity is difficult to express exactly, it is related to the probability of success. If, with $\bar x:\sum_i \sigma(x_0,{\bar x}_i)\geq B$,
 \begin{eqnarray}
 \label{sec:guarantees:prior-learnability}
 \int_{\eta_0}\limits
@@ -589,287 +605,12 @@ Although the learnability is difficult to express exactly, it is related to the 
 \end{eqnarray}
 In english, first we pick a ``true'' model $\eta_0$ according to the prior $\phi$. Then, we make some observations $\hat y$ from the world created by $\eta_0$. Once we have the ``true'' model and the observations, we see how many models are $\epsilon$-close to the ``true'' model, weighted according to their posterior likelihoods.
 
-\begin{example}
-
-We can use the prior from Equation~\ref{sec:models:eqn:coinbag} as an example to analyze prior learnability. Modifying Equation~\ref{sec:guarantees:prior-learnability} to represent the prior in question, we have
-\begin{eqnarray}
-\label{sec:guarantees:coin-bag-learnability}
-\sum_{\rho_0 \in \{\frac 1 2, 1\}}
- \phi(\rho_0)
- \sum_{H=0}^B
-  \mbox{Bin}(H|\rho_0,B)
-  \sum_{\tilde \rho \in \{\frac 1 2, 1\}}
-   \phi(\rho|H)
-   \mathbb{1}(|\rho_0-\tilde\rho|\leq\epsilon)
-&\leq& 1-\delta,\\
-%
-\begin{array}{lrl}
-&x&
- \sum_{H=0}^B
-  \mbox{Bin}(H|\frac 1 2,B)
-  \sum_{\tilde \rho \in \{\frac 1 2, 1\}}
-   \phi(\rho|H)
-   \mathbb{1}(|\frac 1 2-\tilde\rho|\leq\epsilon)\\ 
-+&(1-x)&
- \sum_{H=0}^B
-  \mbox{Bin}(H|1,B)
-  \sum_{\tilde \rho \in \{\frac 1 2, 1\}}
-   \phi(\rho|H)
-   \mathbb{1}(|1-\tilde\rho|\leq\epsilon)
-\end{array}
-&\leq& 1-\delta.
-\end{eqnarray}
-
-Choosing $0 \leq \epsilon < 0.5$,
-\begin{eqnarray}
-%
-\begin{array}{lrll}
-&x&
- \sum_{H=0}^B
-  \mbox{Bin}(H|\frac 1 2,B)&
-   \phi(\frac 1 2|H)\\ 
-+&(1-x)&
- \sum_{H=0}^B
-  \mbox{Bin}(H|1,B)&
-   \phi(1|H)
-\end{array}
-&\leq& 1-\delta,\\
-%
-\begin{array}{lrll}
-&x&
- \sum_{H=0}^B
-  \mbox{Bin}(H|\frac 1 2,B)&
-   \phi(\frac 1 2|H)\\ 
-+&(1-x)&
-  \mbox{Bin}(B|1,B)&
-   \phi(1|B)
-\end{array}
-&\leq& 1-\delta,\\
-%
-\label{sec:guarantees:coinbag-learnability-leaveoff}
-\begin{array}{lrll}
-&x&
- \sum_{H=0}^B
-  \mbox{Bin}(H|\frac 1 2,B)&
-   \phi(\frac 1 2|H)\\ 
-+&(1-x)&
-  &
-   \phi(1|B)
-\end{array}
-&\leq& 1-\delta.
-\end{eqnarray}
-%
-%
-In Chapter~\ref{sec:intro}, we saw that
-\begin{eqnarray}
-\phi(1|H) &\propto& (1-x)0^{B-H},\\
-\phi(\frac 1 2|H) &\propto& x \frac 1 {2^B},
-\end{eqnarray}
-which indicates that
-\begin{eqnarray}
-\phi(1|H) &=& \frac
-{(1-x)0^{B-H}}
-{(1-x)0^{B-H}+x \frac 1 {2^B}},\\
-\phi(\frac 1 2|H) &=& \frac
-{x \frac 1 {2^B}}
-{(1-x)0^{B-H}+x \frac 1 {2^B}},
-\end{eqnarray}
-since $1$ and $\frac 1 2$ are the only posterior possibilities with non-zero likelihood.
-
-
-\note{jta: there is a mistake somewhere in the following derivation, but i haven't found it yet. unless you really want to, don't bother reading the rest of this subsection}
-
-Continuing from Equation~\ref{sec:guarantees:coinbag-learnability-leaveoff},
-\begin{eqnarray}
-x
-\left[
- \sum_{H=0}^B
-  \mbox{Bin}(H|\frac 1 2,B)
- \phi(\frac 1 2|H)
-\right]
-+(1-x)
-\phi(1|B)
-&\geq& 1-\delta,\\
-%
-x
-\left[
-\begin{array}{lll}
- &(1-\mbox{Bin}(B|\frac 1 2, B))& \phi(\frac 1 2|H<B)\\
- +&\mbox{Bin}(B|\frac 1 2, B)& \phi(\frac 1 2|B)
-\end{array}
-\right]
-+(1-x)
-\phi(1|B)
-&\geq& 1-\delta,\\
-%
-x
-\left[
- (1-\mbox{Bin}(B|\frac 1 2, B))
- +\mbox{Bin}(B|\frac 1 2, B) \phi(\frac 1 2|B)
-\right]
-+(1-x)
-\phi(1|B)
-&\geq& 1-\delta,\\
-%
-x
-\left[
- \left(1-\frac 1 {2^B}\right)
- +\frac 1 {2^B} \phi(\frac 1 2|B)
-\right]
-+(1-x)
-\phi(1|B)
-&\geq& 1-\delta,\\
-%
-x
-\left[
- \left(1-\frac 1 {2^B}\right)
- +\frac 1 {2^B} \frac
-{x \frac 1 {2^B}}
-{(1-x)0^{B-B}+x \frac 1 {2^B}}
-\right]
-+(1-x)
-\phi(1|B)
-&\geq& 1-\delta,\\
-%
-x
-\left[
- \left(1-\frac 1 {2^B}\right)
- +\frac 1 {2^{2B}} \frac
-{x }
-{(1-x)+x \frac 1 {2^B}}
-\right]
-+(1-x)
-\phi(1|B)
-&\geq& 1-\delta,\\
-%
-x
-\left[
- \left(1-\frac 1 {2^B}\right)
- +\frac 1 {2^{2B}} \frac
-{x }
-{(1-x)+x \frac 1 {2^B}}
-\right]
-+(1-x)
-\frac
-{(1-x)0^{B-B}}
-{(1-x)0^{B-B}+x \frac 1 {2^B}}
-&\geq& 1-\delta,\\
-%
-x
-\left[
- \left(1-\frac 1 {2^B}\right)
- +\frac 1 {2^{2B}} \frac
-{x }
-{(1-x)+x \frac 1 {2^B}}
-\right]
-+
-\frac
-{(1-x)^2}
-{(1-x)+x \frac 1 {2^B}}
-&\geq& 1-\delta,\\
-%
-x
-\left[
- \frac {2^B-1} {2^B}
- +\frac
-   {x}
-   {2^B(2^B(1-x)+x)}
-\right]
-+
-\frac
- {2^B (1-x)^2}
- {2^B (1-x)+x}
-&\geq& 1-\delta,\\
-%
- \frac
-  {2^Bx-x}
-  {2^B}
- +
- \frac
-  {x}
-  {2^B(2^B(1-x)+x)}
- +
- \frac
-  {2^B (1-x)^2}
-  {2^B (1-x)+x}
-&\geq& 1-\delta,\\
-%
- \frac
-  {(2^B (1-x)+x)(2^Bx-x)
-   +{x}
-   +{2^{2B} (1-x)^2}}
-  {2^B(2^B(1-x)+x)}
-&\geq& 1-\delta,\\
-%
- \frac
-  {2^{2B}x (1-x)-2^Bx+2^Bx^2-x^2
-   +{x}
-   +{2^{2B} (1-x)^2}}
-  {2^{2B}(1-x)+2^Bx}
-&\geq& 1-\delta,\\
-%
- \frac
-  {2^{2B}\left[x (1-x)+(1-x)^2\right]+2^B\left[x^2-x\right]+\left[-x^2
-   +{x}\right]}
-  {2^{2B}(1-x)+2^Bx}
-&\geq& 1-\delta,\\
-%
- \frac
-  {2^{2B}\left[1-x\right]+2^B\left[-x(1-x)\right]+\left[x(1-x)\right]}
-  {2^{2B}(1-x)+2^Bx}
-&\geq& 1-\delta,\\
-%
- \frac
-  {2^{2B}\left[1-x\right]+2^B\left[-x(1-x)\right]+\left[x(1-x)\right]}
-  {2^{2B}(1-x)+2^Bx} + \delta
-&\geq& 1,\\
-%
- \frac
-  {2^{2B}\left[1-x\right]+2^B\left[-x(1-x)\right]+\left[x(1-x)\right]
-   + \delta(2^{2B}(1-x)+2^Bx)}
-  {2^{2B}(1-x)+2^Bx}
-&\geq& 1,\\
-%
- \frac
-  {2^{2B}\left[(1+\delta)(1-x)\right]+2^B\left[x(x-1+\delta)\right]+\left[x(1-x)\right]}
-  {2^{2B}(1-x)+2^Bx}
-&\geq& 1,\\
-%
-  {2^{2B}\left[(1+\delta)(1-x)\right]+2^B\left[x(x-1+\delta)\right]+\left[x(1-x)\right]}
-&\geq& {2^{2B}(1-x)+2^Bx},\\
-%
-  2^{2B}\left[\delta(1-x)\right]
-  +2^B\left[\delta x-x(1-x)+x\right]
-  +\left[ x(1-x)\right]
-&\geq& 0,
-\end{eqnarray}
-which is a quadratic equation $ay^2+by+c\geq0$, with
-\begin{eqnarray}
-y &=& 2^B,\\
-a &=& \delta(1-x),\\
-b &=& \delta x-x(1-x)+x,\\
-c &=& x(1-x).
-\end{eqnarray}
-As a result,
-\begin{eqnarray}
-2^B &\geq&
- \frac{
-  -(\delta x - x(1-x) + x)
-  +\sqrt{
-   (\delta x - x(1-x) + x)^2 - 4\delta(1-x)x(1-x)
-  }
- }
- {2\delta(1-x)}.
-\end{eqnarray}
-\note{something went wrong, because if $a,b,c\geq0$, there is no real $y$. i'll fix it at some point.}
-
-\end{example}
 
 \begin{example}
 
 \label{sec:guarantees:beta-bin}
 
-We can find the learnability of the Beta-Binomial model,
+We can find the sample complexity of the Beta-Binomial model,
 \begin{eqnarray}
 \label{sec:guarantees:eqn:beta-bin-beta}
 \rho &\sim& \dBeta(\alpha,\beta),\\
@@ -877,7 +618,7 @@ We can find the learnability of the Beta-Binomial model,
 H &\sim& \dBin(\rho_0, B).
 \end{eqnarray}
 
-The Beta-Binomial prior's $\rho$ parameter is \bed-learnable if
+The Beta-Binomial prior's $\rho$ parameter has a sample complexity of $B$ if
 \begin{eqnarray}
 \begin{array}{l}
 \int_{\rho_0} \dBeta(\rho_0|\alpha,\beta)
@@ -903,11 +644,11 @@ The Beta-Binomial prior's $\rho$ parameter is \bed-learnable if
 \end{eqnarray}
 where $I_x(a,b)=I_{\max(0, \min(1, x))}(a,b)$ is the regularized incomplete gamma function.
 
-For a given $\epsilon$, $\delta$, $\alpha$, and $\beta$, the smallest $B$ that satisfies Equation~\ref{sec:guarantees:eqn:beta-binomial-learnable} can be found numerically. Table~\ref{sec:guarantees:table:beta-bin} lists several example values that make the Beta-Binomial \bed-learnable.
+For a given $\epsilon$, $\delta$, $\alpha$, and $\beta$, the smallest $B$ that satisfies Equation~\ref{sec:guarantees:eqn:beta-binomial-learnable} can be found numerically. Table~\ref{sec:guarantees:table:beta-bin} lists several example sample complexities for different values of $\epsilon$ and $\delta$, and different prior parameters.
 
 
 \begin{table}
-\caption{Learnability of a Beta-Binomial. Using the model from Section~\ref{sec:guarantees:beta-bin}, the posterior for the latent variable $\rho$ is $\epsilon$-accurate with probability at least $1-\delta$ if $B$ is above some threshold. This table gives examples of the relations between the model hyperparameters, $\epsilon$, $\delta$, and $B$. These values are a bit suspect, just wrote the code to find them. }
+\caption{Sample complexity for the Beta-Binomial. Using the model from Section~\ref{sec:guarantees:beta-bin}, the posterior for the latent variable $\rho$ is $\epsilon$-accurate with probability at least $1-\delta$ if $B$ is above some threshold. This table gives examples of the relations between the model hyperparameters, $\epsilon$, $\delta$, and $B$. }
 \label{sec:guarantees:table:beta-bin}
 \center{\small
 \begin{tabular}{rccl}

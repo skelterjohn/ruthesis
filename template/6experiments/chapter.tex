@@ -1,15 +1,17 @@
-In this chapter I present experiments performed by myself and others, examining the \alg{BOSS} and \alg{BFS3} algorithms, and comparing them to other algorithms in the same spirit.
+In this chapter, I present experiments performed by myself and others, examining the \alg{BOSS} and \alg{BFS3} algorithms, and comparing them to other algorithms in the same spirit.
 
-\subsection{Parameter choice}
+\section{Parameter choice}
 
-In each experiment, several values for each of the relevant parameters were used, but sometimes only the best were recorded.
+In each experiment, several values for each of the relevant parameters were used, but sometimes only the best were recorded. The exact method of parameter choice is explained for each experiment.
 
-\subsubsection{RMAX}
+\subsection{RMAX}
 
 Many algorithms are fairly robust with respect to their parameters.
-For instance, the \alg{RMAX}~\cite{brafman02} family of algorithms~\cite{jong07,asmuth08} have one important parameter, $m$, indicating how many samples of a state-action pair are necessary before that pair is considered \emph{known}. For a given environment, there is usually a value $m^*$ for which any $m\geq m^*$ will cause the \alg{RMAX} agent to find the optimal policy --- it needs at least $m^*$ samples of some set of key state-action pairs in order to know how to behave well. Increasing $m$ beyond $m^*$ will result in a longer period of sup-optimal behavior at the beginning of the trial. Decreasing $m$ will result in potentially defective policies built on too little information.
+For instance, the \alg{RMAX}~\cite{brafman02} family of algorithms~\cite{jong07,asmuth08} has one important parameter, $m$, indicating how many samples of a state-action pair are necessary before that pair is considered \emph{known}. For a given environment, there is usually a value $m^*$ for which any $m\geq m^*$ will cause the \alg{RMAX} agent to find the optimal policy --- it needs at least $m^*$ samples of some set of key state-action pairs to know how to behave well. Increasing $m$ beyond $m^*$ will result in a longer period of sup-optimal behavior at the beginning of the trial. Decreasing $m$ will result in potentially defective policies built on too little information.
 
-\subsubsection{BOSS}
+Since it is easy to identify the optimal value for $m$---increasing $m$ does not improve the resulting policy value, and decreasing $m$ makes it worse---a brief parameter sweep is sufficient to find the best value for any experiment. Many environments have, for each state, a relatively small number of possible successor states (for instance, in a grid world, those states that are adjacent). And in many of these environments, a single successor state takes the bulk of the probability mass (for instance, if the stochasticity comes from adding a failure probability).
+
+\subsection{BOSS}
 
 \alg{BOSS}, or \alg{Best Of Sampled Set}, is discussed in detail in Chapter~\ref{sec:boss}.
 
@@ -19,15 +21,17 @@ Unlike \alg{RMAX}, where a too-small value for $m$ can effect reliably poor poli
 
 The $K$ parameter for \alg{BOSS}, which chooses how many posterior samples to use when creating the hyper-model, must fall within a certain range to be useful. In the limit, as $K\rightarrow\infty$, \alg{BOSS} will break down completely. Since \alg{BOSS} views all of the posterior samples going into a particular hyper-model equally, sampling an infinite amount of them will lead to a hyper-model that is completely uninformed by the agent's experience. Conditioning on observations causes the posterior to change shape, making some models more likely than others. If too many samples are taken, then the models that would normally be skipped, due to low probability, will still be represented in the hyper-model. In practice, the value of $K$ that becomes ``too big'' is terrifically large, since with enough data the posterior can become extremely peaked.
 
-Setting $K$ too low can cause underexploration. If there are not enough posterior samples used to create the hyper-model, it is possible that some state-action pairs will have a \emph{pessimistic} value in the hyper-model, causing the agent to sometimes actively avoid high-value states when they are \emph{unknown}, since they will have high variance in the posterior.
+Setting $K$ too low can cause underexploration. If there are not enough posterior samples used to create the hyper-model, it is possible that some state-action pairs will have a \emph{pessimistic} value in the hyper-model, causing the agent to sometimes actively avoid high-value states when they are \emph{unknown}, since they will have high variance in the posterior. \alg{Bayesian DP}~\cite{strens00}, discussed in Section~\ref{sec:rel:bdp}, is similar to \alg{BOSS} with $K=1$, except that it addresses the underexploration issue with periodic resampling.
 
-\subsubsection{BFS3}
+Finding ideal parameters for \alg{BOSS} is, in general, easy to do. Although the theoretical guarantees require $K$ to be large enough such that all unknown state-action pairs have optimistic values, in practical settings it's only necessary that most of them do, so that \alg{BOSS} has exploration incentives.
+
+\subsection{BFS3}
 
 \alg{BFS3}, or \alg{Bayesian Forward Search Sparse Sampling}, is discussed in detail in Chapter~\ref{sec:bfs3}. It leans heavily on \alg{FSSS}, which is discussed in detail in Chapter~\ref{sec:relmbbrl}, Section~\ref{sec:rel:fsss}.
 
 The choice of parameters for \alg{BFS3} is, for the most part, pre-specified by \alg{FSSS}. Since, for \alg{BFS3} to be effective, \alg{FSSS} must be able to find the value of any state in the ``true'' model, \alg{BFS3} must choose parameters that are at least as conservative as those needed by \alg{FSSS}.
 
-The only parameter that will often need to be \emph{more} conservative than the one requred by \alg{FSSS} is the $C$: how many times \alg{FSSS} will try each action from each visited state when doing simulations. There are MDPs for which \alg{FSSS} only needs $C=1$ try of each action for each visited state --- if a model is deterministic, then the action will give the same results each time. However, a deterministic ``true'' MDP does not induce a deterministic BAMDP: there can still be stochasticity in the posterior until the agent has observed a transition from the state being visited by \alg{FSSS}. As a result, $C$ must often be higher than the minimum needed for \alg{FSSS} to be effective for the ``true'' model.
+The only parameter that will often need to be \emph{more} conservative than the one required by \alg{FSSS} is the $C$: how many times \alg{FSSS} will try each action from each visited state when doing simulations. There are MDPs for which \alg{FSSS} only needs $C=1$ to try out each action for each visited state --- if a model is deterministic, then the action will give the same results each time. However, a deterministic ``true'' MDP does not induce a deterministic BAMDP: There can still be stochasticity in the posterior until the agent has observed a transition from the state being visited by \alg{FSSS}. As a result, $C$ must often be higher than the minimum needed for \alg{FSSS} to be effective for the ``true'' model.
 
 Increasing parameters to values above what are needed will not harm the performance of the agent with respect to sample complexity, but can have an effect on the computation required. Computation will grow linearly with the number of trajectories run, the number of times that \alg{FSSS} will try each action for each visited state, and the search depth.
 
@@ -45,7 +49,7 @@ actions: Action~1 advances the agent along the chain, and Action~2
 resets the agent to the first node.  Action~1, when taken from the
 last node, leaves the agent where it is and gives a reward of 10---all
 other rewards are 0.  Action~2 always has a reward of 2.  With
-probability $0.2$ the outcomes are switched, however.  Optimal
+probability $0.2$ the outcomes of the two actions are switched, however.  Optimal
 behavior is to always choose Action~1 to reach the high reward at the end
 of the chain.
 
@@ -61,8 +65,8 @@ of the chain.
 
 The slip probability $0.2$ is the same for all state--action pairs.
 Poupart~et~al.~(2006) consider the impact of encoding this constraint
-as a strong prior on the transition dynamics.  That is, whereas in the
-\prior{Full} prior, the agent assumes each state--action pair corresponds
+into the prior on the transition dynamics.  That is, whereas in the
+\prior{Full} prior the agent assumes each state--action pair corresponds
 to independent multinomial distributions over next states, under the
 \prior{Tied} prior, the agent knows the underlying transition dynamics
 except for the value of a single slip probability that is shared
@@ -70,18 +74,19 @@ between all state--action pairs.  They also introduce a \prior{Semi} prior
 % that is similar to \prior{Tied} except that 
 in which the two actions have independent slip probabilities.
 Posteriors for \prior{Full} can be maintained using a Dirichlet (the conjugate
-for the multinomial) and \prior{Tied}/\prior{Semi} can be represented with a simple
-Beta distribution.
+for the multinomial) and \prior{Tied}/\prior{Semi} can be represented with simple
+Beta distributions.
 
 In keeping with published results on this problem, Table~\ref{t:chain}
 reports cumulative rewards in the first 1000 steps, averaged over 500
 runs.  Standard error is on the order of 20 to 50.  The optimal policy
 for this problem scores 3677.  The \alg{exploit} algorithm is one that
-always acts optimally with respect to the average model weighted by
-the posterior.  \alg{RAM-RMAX}~\cite{leffler07} is a version of \alg{RMAX} that
+always acts optimally with respect to the average posterior-weighted model.  \alg{RAM-RMAX}~\cite{leffler07} is a version of \alg{RMAX} that
 can exploit the tied parameters of tasks like this one.  Results for
 \alg{BEETLE} and \alg{exploit} are due to Poupart~et~al.~(2006).  All runs used a
 discount factor of $\gamma=0.95$ and \alg{BOSS} used $B=10$ and $K=5$.
+
+The parameter values for \alg{BOSS} were an initial guess, and the guess allowed \alg{BOSS}'s performance to either match or exceed every other algorithm in the experiment.
 
 \begin{table}
 \caption{Cumulative reward in \env{Chain}~\cite{asmuth09}}
@@ -140,7 +145,7 @@ We ran \alg{BOSS} in a factorial design where we varied the environment
 experiments, \alg{BOSS} used a discount factor of $\gamma = 0.95$,
 knownness parameter $B=10$, and a sample size of $K=5$.  The
 \prior{Cluster} CRP used $\alpha=0.5$ and whenever a
-sample was required, the Gibbs sampler ran for a burn period of 500
+sample was required the Gibbs sampler ran for a burn period of 500
 sweeps with 50 sweeps between each sample.
 
 \begin{figure}[t]
@@ -270,18 +275,22 @@ as it was not necessary to visit them often to
 obtain high reward in this grid.  The sampled models used around
 10~clusters to capture the dynamics.
 
+A variety of parameters were used for \alg{BOSS}, all resulting similarly valued policies and unnoticable purely exploration periods, suggesting that \alg{BOSS}'s performance is quite robust with respect to its parameters.
+
 \subsection{Puddle World}
 \label{puddle}
 
-\env{Puddle World}~\cite{boyan94b} is an RL benchmark in which an agent attempts to navigate two-dimensional space using four actions equivalent to \emph{north}, \emph{east}, \emph{south} and \emph{west}. The outcome dynamics are consistent across the entire domain, but the reward associated with each step can vary; in the center of the environment is a large ``puddle'', and if the agent ventures into the puddle it receives very poor reward. It is an action-penalty domain where the agent's goal is to reach a terminal state in one corner. This domain has deterministic outcomes with small additive noise.
+\env{Puddle World}~\cite{boyan94b} is an RL benchmark in which an agent attempts to navigate two-dimensional space using four actions equivalent to \emph{north}, \emph{east}, \emph{south} and \emph{west}. The outcome dynamics are consistent across the entire domain, but the reward associated with each step can vary; in the center of the environment is a large ``puddle'', and if the agent ventures into the puddle it receives very poor reward. It is an action-penalty domain where the agent's goal is to reach a terminal state in one corner. This domain has outcomes with small additive noise.
 
-\prior{ROAR}/\alg{BOSS} is compared against \alg{Fitted-RMAX} in Figure \ref{fig:puddle}.
+\prior{ROAR}/\alg{BOSS} is compared against \alg{Fitted-RMAX} in Figure \ref{fig:puddle}. Here, both algorithms are able to find effective policies, but the sub-optimal steps taken by \alg{Fitted-RMAX} significantly hurt its total reward gathered; this poor behavior at the beginning is typical of \alg{RMAX}-based algorithms. \prior{ROAR}/\alg{BOSS}, on the other hand, is able to start being effective more quickly, since the dynamics of of the model are partly encoded in the prior, though the details are left out. Occasionaly, \prior{ROAR}/\alg{BOSS} decides to learn about a new area of the state-space for a short period. Such episodes are visible in the plot as sharp, but short, dips downwards as it takes sub-optimal actions.
+
+Although only a single parameter choice is shown in the experiment, it was able to significantly outperform its competitor, and has a very short learning period at the beginning, with other smaller dips later on as it discovers other interesting areas of the environment.
 
 \begin{figure}[t]
 \vskip 0.2in
 \begin{center}
 \centerline{\includegraphics[width=\columnwidth]{figures/puddleFigure}}
-\caption{Typical of \alg{RMAX}-family algorithms, \alg{Fitted-RMAX} is very conservative, getting data from every portion of the environment before acting greedily. \prior{ROAR}/\alg{BOSS}, since it depends on posterior variance for exploration, starts getting good reward sooner, even though occasionally it decides to learn about a new area for a short period. \alg{Fitted-RMAX} was run with width parameter $b=0.05$ and knownness threshold $B=2$. \prior{ROAR}/\alg{BOSS} was run with $K=1, B=5, \alpha=1.0,\Psi_{\mbox s}=0.1I, m_{\mbox s}=200, \Psi_{\mbox o}=0.01I, m_{\mbox o}=30, \Psi_{\mbox r}=1.0I,m_{\mbox r}=20,\alpha_\phi=0.001,\beta_\phi=0.01$. Averaged over $20$ runs.}
+\caption{\prior{ROAR}/\alg{BOSS} and \alg{Fitted-RMAX} are compared on the \env{Puddle World} domain. \alg{Fitted-RMAX} was run with width parameter $b=0.05$ and knownness threshold $B=2$. \prior{ROAR}/\alg{BOSS} was run with $K=1, B=5, \alpha=1.0,\Psi_{\mbox s}=0.1I, m_{\mbox s}=200, \Psi_{\mbox o}=0.01I, m_{\mbox o}=30, \Psi_{\mbox r}=1.0I,m_{\mbox r}=20,\alpha_\phi=0.001,\beta_\phi=0.01$. Averaged over $20$ runs.}
 \label{fig:puddle}
 \end{center}
 \vskip -0.2in
@@ -291,7 +300,7 @@ obtain high reward in this grid.  The sampled models used around
 \subsection{Bridge of Fire}
 \label{fire}
 
-The previous sectionÊdescribed a model that is characterized as ``deterministic with small noise''. In the \env{Bridge of Fire} domain, this assumption is violated by making the noise associated with each action determine the action's effectiveness.
+The previous section described a model that could be characterized as ``deterministic with small noise''. In the \env{Bridge of Fire} domain, this assumption is violated by making the noise associated with each action determine the action's effectiveness.
 
 In the \env{Bridge of Fire} domain, the agent must navigate across a bridge, without falling off the side (and into the fire), using three actions corresponding to \emph{walk}, \emph{hand-spring} and \emph{pogo-stick}. \emph{Walk} is a very consistent action, moving the agent forward along the bridge with no lateral noise. \emph{Hand-spring} will move the agent faster, but there is a chance that the agent moves to one side or the other. \emph{Pogo-stick} will take the agent a long way, but there is a huge amount of uncertainty in the movement and more often than not the agent will pogo right off of the bridge.
 
@@ -301,13 +310,15 @@ More concretely, the bridge is a $2\times 10$ rectangle, and the agent begins in
 
 Ignoring the noise in the \env{Bridge of Fire} will cause the agent to prefer \emph{pogo-stick}, since the outcome moves the agent the furthest along the length of the bridge and has zero mean lateral displacement. In reality, the agent should prefer \emph{walk} until near the end, when \emph{hand-spring} becomes safer.
 
-\prior{ROAR}/\alg{BOSS} is compared against \alg{Fitted-RMAX} and \alg{CORL} in Figure \ref{fig:bridge}.
+\prior{ROAR}/\alg{BOSS} is compared against \alg{Fitted-RMAX} and \alg{CORL} in Figure \ref{fig:bridge}. We see that the algorithms \prior{ROAR}/\alg{BOSS} and \alg{CORL} were able to learn the \env{Bridge of Fire} domain effectively. \alg{Fitted-RMAX} makes assumptions that do not hold in this environment, namely that there is no noise in the outcome distribution, and does poorly as a result because the action it likes the best has enough noise to knock the agent off the bridge. 
+
+For \alg{BOSS}'s parameter choices, even the trivial value of $K=1$ was enough for the agent to be able to find the optimal policy more quickly than \alg{CORL}, which is a more conservative algorithm. The rest of the parameters are associated with \prior{ROAR}, rather than \alg{BOSS}, and are chosen such that the prior guesses about noise are within an order of magnitude of the truth.
 
 \begin{figure}[t]
 \vskip 0.2in
 \begin{center}
 \centerline{\includegraphics[width=\columnwidth]{figures/bridgeFigure}}
-\caption{Algorithms using \prior{ROAR} and \alg{CORL} were able to learn the \env{Bridge of Fire} domain effectively. \alg{Fitted-RMAX} makes assumptions that do not hold in this environment, and does poorly as a result. \alg{CORL} was run with knownness threshold $B=20$, and was given the correct type function. \alg{Fitted-RMAX} was run with width parameter $b=0.5$ and knownness threshold $B=3$. \prior{ROAR}/\alg{BOSS} was run with $K=1, B=10, \alpha=1.0,\Psi_{\mbox s}=0.1I, m_{\mbox s}=3, \Psi_{\mbox o}=0.1I, m_{\mbox o}=3, \Psi_{\mbox r}=1.0I,m_{\mbox r}=50,\alpha_\phi=0.001,\beta_\phi=0.005$. Averaged over $20$ runs.}
+\caption{\prior{ROAR}/\alg{BOSS} is compared against \alg{CORL} on the \env{Bridge of Fire} domain. \alg{CORL} was run with knownness threshold $B=20$, and was given the correct type function. \alg{Fitted-RMAX} was run with width parameter $b=0.5$ and knownness threshold $B=3$. \prior{ROAR}/\alg{BOSS} was run with $K=1, B=10, \alpha=1.0,\Psi_{\mbox s}=0.1I, m_{\mbox s}=3, \Psi_{\mbox o}=0.1I, m_{\mbox o}=3, \Psi_{\mbox r}=1.0I,m_{\mbox r}=50,\alpha_\phi=0.001,\beta_\phi=0.005$. Averaged over $20$ runs.}
 \label{fig:bridge}
 \end{center}
 \vskip -0.2in
@@ -316,17 +327,19 @@ Ignoring the noise in the \env{Bridge of Fire} will cause the agent to prefer \e
 \subsection{Mind the Gap}
 \label{gap}
 
-The \env{Mind the Gap} domain is similar to \env{Bridge of Fire}, except none of the actions have lateral displacement; the agent always goes straight and will never fall off the side. However, beginning $5$ units from the beginning, there is a $1$ unit stretch where the bridge has given out. To compensate, the agent has become better at the using the \emph{pogo-stick} action: The agent will either remain still or move forward exactly $1.5$ units. The \emph{pogo-stick} action becomes appropriate when the agent is within $0.5$ units of the gap, though due to noise in the other actions, it is still very difficult to avoid the gap with high probability.
+The \env{Mind the Gap} domain is similar to \env{Bridge of Fire}, except none of the actions have lateral displacement; the agent always goes straight and will never fall off the side. However, beginning $5$ units from the initial state, there is a $1$ unit stretch where the bridge has given out. To compensate, the agent has that the algorithm controls has become better at the using the \emph{pogo-stick} action: The agent will either remain still or move forward exactly $1.5$ units. The \emph{pogo-stick} action becomes appropriate when the agent is within $0.5$ units of the gap, though due to noise in the other actions, it is still very difficult to avoid the gap with high probability.
 
 The correct model in \env{Mind the Gap} is very difficult to learn. Using \prior{ROAR} with \alg{Bayesian~DP} proved ineffective; sampling only a single model at a time didn't give the agent enough reason to learn sufficiently about some parts of the state space. However, using \alg{BOSS} as the sampler was more successful. \alg{BOSS} is a very conservative algorithm, ``pooling'' the optimism from each of its sampled models for planning. This domain demonstrates the need for such optimism.
 
-\prior{ROAR}/\alg{BOSS} and \prior{ROAR}/\alg{Bayesian~DP} are compared against \alg{CORL} in Figure \ref{fig:bridge2}.
+\prior{ROAR}/\alg{BOSS} and \prior{ROAR}/\alg{Bayesian~DP} are compared against \alg{CORL} in Figure \ref{fig:bridge2}. Because of its unimodal outcome distribution assumption, \alg{CORL} was unable to perform well in the \env{Mind the Gap} domain, even after knowing the correct ``type'' function for clustering. \prior{ROAR}, with no prior knowledge of the clustering, is able to effectively learn multi-modal distributions and can correctly model this environment's dynamics. 
+
+For this experiment, an effect was observed by changing \alg{BOSS}'s $K$ parameter. Since the environment is fairly difficult, increasing $K$---which can be likened to increasing how conservative \alg{BOSS} is---caused \alg{BOSS} to remain optimistic longer for some of the harder-to-learn actions. \alg{Bayesian DP}, which is very similar to \alg{BOSS} with $K=1$, was unable to find the optimism required to try the \emph{pogo-stick} action when it was needed.
 
 \begin{figure}[t]
 \vskip 0.2in
 \begin{center}
 \centerline{\includegraphics[width=\columnwidth]{figures/bridge2Figure}}
-\caption{Because of its unimodal outcome distribution assumption, \alg{CORL} was unable to perform well in the \env{Mind the Gap} domain, even after being told the correct ``type'' function for clustering. \prior{ROAR}, with no prior knowledge of the clustering, is able to effectively learn multi-modal distributions and can correctly model this environment's dynamics. \alg{CORL} was run with knownness threshold $B=10$. \prior{ROAR} algorithms were run with $B=1, \alpha=1.0,\Psi_{\mbox s}=0.5I, m_{\mbox s}=10, \Psi_{\mbox o}=0.1I, m_{\mbox o}=3, \Psi_{\mbox r}=0.01I,m_{\mbox r}=50,\alpha_\phi=0.01,\beta_\phi=0.001$. \prior{ROAR}/\alg{Bayesian~DP} drew samples every $20$ steps. Averaged over $20$ runs.}
+\caption{\prior{ROAR}/\alg{BOSS}, \prior{ROAR}/\alg{Bayesian DP}, and \alg{CORL} are compared on the \env{Mind the Gap} domain. \alg{CORL} was run with knownness threshold $B=10$. \prior{ROAR} algorithms were run with $B=1, \alpha=1.0,\Psi_{\mbox s}=0.5I, m_{\mbox s}=10, \Psi_{\mbox o}=0.1I, m_{\mbox o}=3, \Psi_{\mbox r}=0.01I,m_{\mbox r}=50,\alpha_\phi=0.01,\beta_\phi=0.001$. \prior{ROAR}/\alg{Bayesian~DP} drew samples every $20$ steps. Averaged over $20$ runs.}
 \label{fig:bridge2}
 \end{center}
 \vskip -0.2in
@@ -339,6 +352,8 @@ The correct model in \env{Mind the Gap} is very difficult to learn. Using \prior
 
 \section{BFS3 experiments}
 
+\label{sec:expr:bfs3}
+
 To demonstrate \alg{BFS3}, we will show its performance in a number of domains, and show how the use of different priors can affect its performance.  This flexibility with respect to using different priors is a compelling reason to use MCTS algorithms in general, and \alg{BFS3} in particular, for model-based reinforcement learning.
 
 The first experiment is very simple, and exact Bayes-optimal behavior is possible. \env{Bernoulli-bandits} is a $5$-armed bandit problem where each arm $a$ has some unknown probability $p_a \sim Beta(\alpha,\beta)$ of returning a reward of $1$ or $0$ each step. For each run in the experiment, the environment parameters $p_a$ are drawn directly from the prior. The Gittins Index~\cite{gittins89} can be used to achieve Bayes-optimal behavior for multi-armed bandit problems. After $1000$ steps, \alg{BFS3} with the true prior received an average (over 40 runs) total reward of $727$, where the Bayes-optimal agent received an average total reward of $815$.
@@ -348,6 +363,8 @@ The first experiment is very simple, and exact Bayes-optimal behavior is possibl
 % zzz ML: What does BEB do?
 
 When using the \prior{FDM} prior with a small state space, \alg{BEB} may be considered a better choice. Since \alg{BEB} operates greedily according to a grounded MDP, rather than a belief-MDP,  planning is made potentially much easier. This algorithm is limited, however, in that it requires a known reward function; it can only deal with uncertainty in the transition function.
+
+\subsection{Reward priors}
 
 \alg{BFS3}, with the right prior, can handle unknown rewards. In many domains, there are only a few possible reward values. For example, many path-finding domains give a reward of $-1$ for all actions. Or, there is a reward for a particular outcome that can be achieved from multiple states: these states would share the same reward value.  To represent this common structure in a generative model, the Dirichlet Process (DP)~\cite{maceachern98} may be used:
 \begin{eqnarray*}
@@ -364,14 +381,16 @@ In Figure~\ref{fig:grids}, \alg{BFS3}, with the unknown reward prior, is shown t
 \begin{figure}
 \vskip 0.2in
 \begin{center}
-\centerline{\includegraphics[width=3in]{figures/grids}}
+\centerline{\includegraphics[width=0.9\linewidth]{figures/grids}}
 \caption{
-Here \alg{BFS3}/\prior{FDM}, with both known rewards and unknown rewards with a DP prior, is compared against the known-reward \alg{BEB}, and \alg{RMAX}~\cite{brafman02}, a well known algorithm with PAC-MDP guarantees, with $M=5$. Results are averaged over $40$ runs.
+Here, \alg{BFS3}/\prior{FDM}, with both known rewards and unknown rewards with a DP prior, is compared against the known-reward \alg{BEB}, and \alg{RMAX}~\cite{brafman02}, a well known algorithm with PAC-MDP guarantees, with $M=5$. Results are averaged over $40$ runs.
 }
 \label{fig:grids}
 \end{center}
 \vskip -0.2in
 \end{figure} 
+
+\subsection{Factored priors}
 
 Along with \prior{FDM}, we introduce the \prior{Factored-Object} prior, which describes factored MDPs in which the state features are broken up into a number of independent yet identical objects. The action also has two features: the first indicates which object is being acted upon, and the second indicates which action is being performed. \prior{Factored-Object} essentially has a single \prior{FDM} posterior, which it applies to each object in the state simultaneously, sharing both information (for faster convergence) and memory.
 
@@ -379,14 +398,15 @@ Along with \prior{FDM}, we introduce the \prior{Factored-Object} prior, which de
 
 For a single object, \prior{Factored-Object} and \prior{FDM} are the same. For two objects, \prior{FDM} has to learn separately how a particular action affects a particular object for every possible configuration of objects---for a different state of an object not being operated on, \prior{FDM} must re-learn how the original object is affected. \prior{Factored-Object} allows the agent to learn about multiple objects at the same time: it knows that a given action affects object $1$ in the same way it affects object $2$, and generalizes appropriately.
 
-The Paint/Polish world~\cite{walsh09a} provides a situation where the simple and convenient \prior{FDM} prior is insufficient. The size of the state-space grows exponentially with the number of cans to paint (each of which introduces four binary features). Figure~\ref{fig:paint1-2can} shows the results with a single can (and $2^4$ states) and the results with two cans (and $2^{4\cdot 2}$ states). Figure~\ref{fig:paint4can} shows the results with four cans (and ${2^4}^4$ states).
+The Paint/Polish world~\cite{walsh09a} provides a situation where the simple and convenient \prior{FDM} prior is insufficient. The size of the state-space grows exponentially with the number of cans to paint (each of which introduces four binary features). Figure~\ref{fig:paint1-2can} shows the results with a single can (and $2^4$ states) and the results with two cans (and $2^{4\cdot 2}$ states). Figure~\ref{fig:paint4can} shows the results with four cans (and ${2^4}^4$ states). In these experiments, we see how encoding knowledge into the algorithm's prior can dramatically affect its performance. The \prior{FDM} prior simply does not scale with the number of parameters, and the \prior{Factored-Object} prior allows the agent to correctly generalize its experience without trying to visit each state.
 
+The parameters for \alg{BFS3}, which are simply the parameters provided to \alg{FSSS}, were chosen by searching for parameters that allowed \alg{FSSS} to find accurate values on the known MDP, which is relatively small and easy to solve with value iteration.
 
 %%
 \begin{figure}
 \vskip 0.2in
 \begin{center}
-\centerline{\includegraphics[width=3in]{figures/dgms}}
+\centerline{\includegraphics[width=.9\linewidth]{figures/dgms}}
 \caption{
 The Directed Graphical Models for \prior{FDM} (left) and \prior{Factored-Object} (right). Nodes indicate random variables, and edges show possible dependencies. Shaded nodes are observed. Boxes indicate repetition.
 }
@@ -398,7 +418,7 @@ The Directed Graphical Models for \prior{FDM} (left) and \prior{Factored-Object}
 \begin{figure}
 \vskip 0.2in
 \begin{center}
-\centerline{\includegraphics[width=3in]{figures/paint1-2can}}
+\centerline{\includegraphics[width=.9\linewidth]{figures/paint1-2can}}
 \caption{
 \alg{BFS3} with \prior{FDM} and \prior{Factored-Object} priors. {\bf Left:}~Paint/Polish with 1 can. \prior{FDM} and \prior{Factored-Object} are identical for one object, and give the same performance. {\bf Right:}~Paint/Polish with 2 cans. \prior{Factored-Object} outperforms \prior{FDM} because it is better able to generalize. Results are averaged over $40$ runs.
 }
@@ -412,7 +432,7 @@ The Directed Graphical Models for \prior{FDM} (left) and \prior{Factored-Object}
 \begin{figure}
 \vskip 0.2in
 \begin{center}
-\centerline{\includegraphics[width=3in]{figures/paint4can}}
+\centerline{\includegraphics[width=.9\linewidth]{figures/paint4can}}
 \caption{
 Paint/Polish with 4 cans. Using the \prior{Factored-Object} prior allows \alg{BFS3} to learn quickly despite the very large state space. Using \prior{FDM} does not allow learning in a reasonable amount of time, and is not pictured. Results are averaged over $40$ runs.
 }
@@ -424,15 +444,17 @@ Paint/Polish with 4 cans. Using the \prior{Factored-Object} prior allows \alg{BF
 
 \subsection{Wumpus World}
 
-\alg{BFS3} can also be used to apply Bayesian modeling to POMDPs. \env{Wumpus World}~\cite{russell94} is based on a classic computer game in which an agent wanders through a $4\times 4$ maze filled with fog, making it impossible to see past its current cell. Even though the agent cannot see, it can feel a breeze if there is a pit in an adjacent cell, and smell a stench if there is a Wumpus\footnote{A Wumpus is a monster that eats RL agents.} near-by. If the agent falls into a pit, it will remain there forever. If the agent runs into the Wumpus, it is eaten. If the agent shoots its one arrow in the direction of the Wumpus, the Wumpus is slain. If the arrow misses the Wumpus, the trial ends and presumably the agent goes home. We replicate the dynamics presented in detail by Sorg et al. (2010). % zzz noun cite
+\alg{BFS3} can also be used to apply Bayesian modeling to POMDPs. \env{Wumpus World}~\cite{russell94} is based on a classic computer game in which an agent wanders through a $4\times 4$ maze filled with fog, making it impossible to see past its current cell. Even though the agent cannot see, it can feel a breeze if there is a pit in an adjacent cell, and smell a stench if there is a Wumpus\footnote{A Wumpus is a monster that eats RL agents.} nearby. If the agent falls into a pit, it will remain there forever. If the agent runs into the Wumpus, it is eaten forever. If the agent shoots its one arrow in the direction of the Wumpus, the Wumpus is slain. If the arrow misses the Wumpus, the trial ends and presumably the agent goes home. We replicate the dynamics presented in detail by Sorg et al. (2010). % zzz noun cite
 
-\env{Wumpus World} is based on a deterministic process, but since the agent only knows attributes of cells that it has visited, it appears stochastic. The prior over different possible mazes is known and given to the agent, and from this it can infer the correct posterior distribution over what happens when it performs a particular action in a particular belief-state.
+\env{Wumpus World} is based on a deterministic process, but since the agent only knows attributes of cells that it has visited, it appears stochastic. The prior over different possible mazes is known and given to the agent, and from this prior it can infer the correct posterior distribution over what happens when it performs a particular action in a particular belief-state.
 
-We ran \alg{BFS3} on \env{Wumpus World} with a search depth of $15$, and varied the number of trajectories per step. Agents with $500$, $1000$, and $5000$ trajectories per step averaged $0.267$, $0.358$ and $0.499$ cumulative reward, respectively. Averages were taken over $1000$ attempts. We compare this to a variance-based reward bonus strategy~\cite{sorg10} which, when tuned, averaged $0.508$.
+We ran \alg{BFS3} on \env{Wumpus World} with a search depth of $15$, and varied the number of trajectories per step. Agents with $500$, $1000$, and $5000$ trajectories per step averaged $0.267$, $0.358$ and $0.499$ cumulative reward, respectively. Averages were taken over $1000$ attempts. We compare these values to a variance-based reward bonus strategy~\cite{sorg10} which, when tuned, averaged $0.508$.
 
 That \alg{BFS3} performs better in \env{Wumpus World} as the computation budget is increased supports our argument that the algorithm has a \emph{computational resources} knob which, when tuned higher, causes the agent's behavior to get closer to being Bayes-optimal at the cost of decision-making speed.
 
 \subsection{Texture World}
+
+\label{sec:expr:tworld}
 
 \env{Texture World} is a simple grid world with four actions: \emph{north}, \emph{east}, \emph{south}, and \emph{west}. From any state, the action attempts to move the agent one cell in the desired direction, as long as the destination is in the grid and is not a \emph{black} cell.
 
@@ -449,10 +471,127 @@ T &\sim& \mbox{Flip}(p),\\
 \theta^C_c &\sim& \dBeta(\alpha,\beta),\\
 \theta^S_s &\sim& \dBeta(\alpha,\beta),
 \end{eqnarray}
-where $\rho_s$ is the success probability in state $s$, $C_s$ is the color of state $s$, $p$ is the prior likelihood that the world is textured, and $\alpha$ and $\beta$ are hyperparameters for the Beta prior. The colors themselves are not part of the prior - the agent knows the color of every state.
+where $\rho_s$ is the success probability in state $s$, $C_s$ is the color of state $s$, $p$ is the prior likelihood that the world is textured, and $\alpha$ and $\beta$ are hyperparameters for the Beta prior. The colors themselves are not part of the prior---the agent knows the color of every state.
 
-The \alg{BOSS} and \alg{BFS3} algorithms were both run in \env{Texture World}, and the results are shown in Figure~\ref{sec:expr:tworld-reward} and in Figure~\ref{sec:expr:tworld-time}.
+So sample a model from this posterior, first the latent parameter $T$ must be sampled. Since there are only two possible values for $T$, \emph{heads} or \emph{tails}, it is sufficient to find their likelihood ratios to pick from the posterior.
 
+With observations $o$,
+\begin{eqnarray}
+P(T|o) &\propto& P(o|T)P(T).
+\end{eqnarray}
+
+Evaluating $P(o|T=\mbox{tails})$ is straightforward: each of the states are a separate learning problem equivalent to learning the bias of a coin. Let $n_s$ be the number of successes from state $s$, and let $t_s$ be the total number of attempts from state $s$. Then,
+\begin{eqnarray}
+P(o|T=\mbox{tails}) &=& \prod_s \int_{\theta} \dBeta(\theta|\alpha,\beta) \dBin(n_s|\theta,t_s) d\theta,
+\end{eqnarray}
+and Equation~\ref{models:eqn:md-int-nodens} shows how this turns into
+\begin{eqnarray}
+P(o|T=\mbox{tails}) &=& \prod_s
+\frac
+ {\left(t_s\right)!}
+ {n_s!(t_s-n_s)!}
+\frac
+ {\Gamma\left(\alpha+\beta\right)}
+ {\Gamma(\alpha)\Gamma(\beta)}
+\frac
+ {\Gamma(\alpha+n_s)\Gamma(\beta+t_s-n_s)}
+ {\Gamma\left(\alpha+\beta+t_s\right)}.
+\end{eqnarray}
+
+Evaluating $P(o|T=\mbox{heads})$ is a little trickier: groups of states have their parameters tied together, but the problem cannot be considered one Multinomial distribution for each cluster. Instead, it is still one multinomial for each state, integrated across the $\theta$ for each cluster.
+\begin{eqnarray}
+\nonumber\lefteqn{P(o|T=\mbox{heads})}\\
+ &=& \prod_c \int_\theta \dBeta(\theta|\alpha,\beta) \prod_{s\in c} \dBin(n_s|\theta,t_s) d\theta,\\
+ &=&
+\prod_c
+ \int_\theta
+  \frac{\Gamma(\alpha+\beta)}{\Gamma(\alpha)\Gamma(\beta)}
+  \theta^{(\alpha-1)}
+  (1-\theta)^{(\beta-1)}
+ \prod_{s\in c} 
+  \frac
+  {\left(t_s\right)!}
+  {n_s!(t_s-n_s)!} \theta^{n_s}(1-\theta)^{(t_s-n_s)} d\theta,\\
+ &=&
+\prod_c
+  \frac{\Gamma(\alpha+\beta)}{\Gamma(\alpha)\Gamma(\beta)}
+ \prod_{s\in c} 
+  \frac
+  {\left(t_s\right)!}
+  {n_s!(t_s-n_s)!}
+ \int_\theta
+  \theta^{(\alpha-1)}
+  (1-\theta)^{(\beta-1)}
+ \prod_{s\in c} 
+ \theta^{n_s}(1-\theta)^{(t_s-n_s)} d\theta,\\
+ &=&
+\prod_c
+  \frac{\Gamma(\alpha+\beta)}{\Gamma(\alpha)\Gamma(\beta)}
+ \prod_{s\in c} 
+  \frac
+  {\left(t_s\right)!}
+  {n_s!(t_s-n_s)!}
+ \int_\theta
+  \theta^{(\alpha+\sum_{s\in c} n_s-1)}
+  (1-\theta)^{(\beta+\sum_{s\in c} (t_s-n_s)-1)} d\theta.
+\end{eqnarray}
+Let $n_c=\sum_{s\in c} n_s$, and $t_c=\sum_{s\in c} t_s$. Then,
+\begin{eqnarray}
+\nonumber\lefteqn{P(o|T=\mbox{heads})}\\
+ &=&
+\prod_c
+  \frac{\Gamma(\alpha+\beta)}{\Gamma(\alpha)\Gamma(\beta)}
+ \prod_{s\in c} 
+  \frac
+  {\left(t_s\right)!}
+  {n_s!(t_s-n_s)!}
+ \int_\theta
+  \theta^{(\alpha+n_c-1)}
+  (1-\theta)^{(\beta+(t_c-n_c)-1)} d\theta,\\
+ &=&
+\begin{array}{ll}
+&\prod_c
+  \frac{\Gamma(\alpha+\beta)}{\Gamma(\alpha)\Gamma(\beta)}
+ \prod_{s\in c} 
+  \frac
+  {\left(t_s\right)!}
+  {n_s!(t_s-n_s)!}\\
+\cdot & \int_\theta
+\frac{\Gamma(\alpha+n_c)\Gamma(\beta+t_c-n_c)}{\Gamma(\alpha+\beta+t_c)}
+\frac{\Gamma(\alpha+\beta+t_c)}{\Gamma(\alpha+n_c)\Gamma(\beta+t_c-n_c)}
+\theta^{(\alpha+n_c-1)}
+  (1-\theta)^{(\beta+(t_c-n_c)-1)} d\theta,
+\end{array}\\
+ &=&
+\begin{array}{ll}
+&\prod_c
+  \frac{\Gamma(\alpha+\beta)}{\Gamma(\alpha)\Gamma(\beta)}
+ \prod_{s\in c} 
+  \frac
+  {\left(t_s\right)!}
+  {n_s!(t_s-n_s)!}\\
+\cdot & 
+\frac{\Gamma(\alpha+n_c)\Gamma(\beta+t_c-n_c)}{\Gamma(\alpha+\beta+t_c)}
+\int_\theta
+\dBeta(\theta|\alpha+n_c, \beta+t_c-n_c) d\theta,
+\end{array}\\
+ &=&
+\prod_c
+\frac{\Gamma(\alpha+n_c)\Gamma(\beta+t_c-n_c)}{\Gamma(\alpha+\beta+t_c)}
+  \frac{\Gamma(\alpha+\beta)}{\Gamma(\alpha)\Gamma(\beta)}
+ \prod_{s\in c} 
+  \frac
+  {\left(t_s\right)!}
+  {n_s!(t_s-n_s)!}.
+\end{eqnarray}
+
+Although tricky to derive, these posterior likelihoods are easy to compute. Once $T$ is sampled (that is, a choice is made about whether or not the world is textured), the success likelihoods of the clusters or of the states, whichever is appropriate, is taken from the posterior Beta distribution that accounts for the successes and failures seen so far in the particular cluster or state.
+
+The ability to mathematically build prior knowledge into a reinforcement-learning agent as shown is compelling since the algorithm itself need not change; only the prior is different.
+
+The \alg{BOSS} and \alg{BFS3} algorithms were both run in \env{Texture World}, and the results are shown in Figure~\ref{sec:expr:tworld-reward} and in Figure~\ref{sec:expr:tworld-time}. Here, \alg{BOSS} was able to quickly and effectively find the optimal policy, while \alg{BFS3} was sluggish, computationally, and was unable to find the optimal policy.
+
+The parameters for \alg{BOSS} were a first guess that, when run, found an easily identifiable optimal policy, choosing a path that used cells with a high success rate. The parameters for \alg{BFS3} were increased until the resulting policy value appeared to not get closer to the value of \alg{BOSS}'s policy.
 
 \begin{figure}
 \vskip 0.2in

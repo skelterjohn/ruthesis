@@ -1,21 +1,21 @@
-\note{This chapter should be split in two:
-1) introduction, problem statement and overview of the contributions
-2) background on MDPs and Bayesian RL}
 
 One of the fundamental goals for researchers working in the field of artificial intelligence is to make computers act more like ``us''. That is, we can play chess, or drive a car, or control a robot, so why is it so difficult to make a computer program to do things the way \emph{we} do? Unfortunately, human behavior appears to arise from an arcance mix of intuition, acquired knowledge, and calculation. Automated problem solvers have gotten very good at the calculation aspects, but effectively incorporating background knowledge into the agent's calculations remains difficult.
 
-The Bayesian approach to machine-learning attempts to address the knowledge issue. With this approach, knowledge given to the algorithm before any acting occurs or from its own related experiences is formalized into a \emph{prior}. The prior describes what the agent \note{?} designer thinks the world ``might be''. As a result, priors can be either extremely vague or even uninformative, but they can also be exact or nearly exact descriptions of the world. The Bayesian approach to machine-learning takes the prior and combines it with observations made from the world.
+The Bayesian approach to machine-learning attempts to address the knowledge issue. With this approach, knowledge given to the algorithm before any acting occurs or from its own related experiences is formalized into a \emph{prior}. The prior describes what the algorithm designer thinks the world ``might be''. As a result, priors can be either extremely vague or even uninformative, but they can also be exact or nearly exact descriptions of the world. The Bayesian approach to machine-learning takes the prior and combines it with observations made from the world.
 
 In this dissertation, I discuss methods of applying the Bayesian approach to building and using models for sequential decision making. Using a prior to shape an agent's concept of how its environment works can greatly reduce the amount of data it must collect before performing well; if you tell it that something can or can't happen a certain way, it won't need to test those things to find out.
 
-\note{graphic with blocks for planner, learner, agent, prior, env, that kind of thing [variation of Kaelbling diagram]}
+\begin{figure}[t]
+\begin{center}
+\includegraphics[width=0.49\linewidth]{figures/model_agent.pdf} \includegraphics[width=0.49\linewidth]{figures/expr_agent.pdf}
+\caption{The two different approaches to Bayesian model-based reinforcement learning that are discussed in this dissertation are the model-sampling approach (left) and the experience-sampling approach (right). With a model-sampling approach, the agent will sample MDPs from the posterior and use those MDPs to run its internal simulation that it uses to create an estimated value function. With an experience-sampling approach, the agent treats the posterior itself as an MDP, and samples observations and rewards directly from the posterior. The two main algorithmic contributions of this dissertation, \alg{BOSS} and \alg{BFS3}, use alternate approaches, with \alg{BOSS} being a model sampler and \alg{BFS3} being an experience sampler.}
+\label{sec:intro:agent-blocks}
+\end{center}
+\end{figure}
 
-The approach I use here to sequential decision making and reinforcement-learning can be divided into distinct blocks: modeling and planning. By drawing a strong distinction between the two areas of agent design, one can more easily draw upon the results of their respective communities. The Bayesian machine-learning community focuses its efforts on building complex models that can be used as priors in learning, and works on efficient inference approximations. The planning community focuses its research on efficient ways to act, once given a model. It is only natural to seek to try to turn the fruits of these two communities into a pipeline for learning and sequential decision making.
+The approach I use here to sequential decision making and reinforcement-learning can be divided into distinct blocks: modeling and planning. Figure~\ref{sec:intro:agent-blocks} illustrates the separation of these components. By drawing a strong distinction between the two areas of agent design, one can more easily draw upon the results of their respective communities. The Bayesian machine-learning community focuses its efforts on building complex models that can be used as priors in learning, and works on efficient inference approximations. The planning community focuses its research on efficient ways to act, once given a model. It is only natural to seek to try to turn the fruits of these two communities into a pipeline for learning and sequential decision making.
 
-\note{[can you say briefly how what you're doing isn't just "run X; run Y; done"?  How does your problem domain differ from the modeling folks?  The planning folks?]}
-\reply{
-It is important to note that the best pipeline in this situation is rarely the greedy one, where the agent infers a model, feeds it directly into the planner and follows the planner's advice. In Chapters~\ref{sec:relmbbr}, \ref{sec:boss}, and \ref{sec:bfs3}, I will describe, motivate and analyze several innovative methods for combining the results of model inference with different sorts of planners.
-}
+It is important to note that the best pipeline in this situation is rarely the greedy one, where the agent infers a model, feeds it directly into the planner and follows the planner's advice. In Chapters~\ref{sec:relmbbrl}, \ref{sec:boss}, and \ref{sec:bfs3}, I will describe, motivate and analyze several innovative methods for combining the results of model inference with different sorts of planners.
 
 The particular flavor of learning and sequential decision making problems approached here is called reinforcement-learning. Reinforcement learning provides a flexible way to evaluate a possible behavior through the use of numerical rewards that the agent seeks to maximize. Simple ``find the shortest path to the goal'' behavior, that much of planning research is centered around, is insufficient for many more realistic scenarios where there can be many factors to consider when comparing the ``goodness'' of two agent behaviors.
 
@@ -43,7 +43,7 @@ The optimal policy, $\pi^*$, is the policy that maximizes the return:
 
 \subsection{Markov Decision Processes}
 
-A common way to concisely describe a reinforcement-learning environment is the Markov Decision Process~\cite{puterman1994markov}\note{ml: if you didn't read it, you shouldn't cite it.}, or MDP. With an MDP, the observation is a complete description of the configuration, or state, of the world, and the next observed state is a function only of the previous state and action performed. That is, if an agent begins in state $s_1$ and performs action $a_1$, the odds that it ends up in state $s_2$ are the same no matter when this occurs --- the next-state distribution is unchanging. It is important to note that the agent's \emph{impression} of the next-state distribution is free to change, but the actual distribution, which may be unknown, is stationary.
+A common way to concisely describe a reinforcement-learning environment is the Markov Decision Process, or MDP. With an MDP, the observation is a complete description of the configuration, or state, of the world, and the next observed state is a function only of the previous state and action performed. That is, if an agent begins in state $s_1$ and performs action $a_1$, the odds that it ends up in state $s_2$ are the same no matter when this occurs --- the next-state distribution is unchanging. It is important to note that the agent's \emph{impression} of the next-state distribution is free to change, but the actual distribution, which may be unknown, is stationary.
 
 An MDP is formally defined as the tuple $\langle S, A, R, T \rangle$, where $S$ is the set of states, $A$ is the set of actions, $R:S \times A \rightarrow \Re$ is the reward function, and $T:S \times A \rightarrow \Pi(S)$ is the transition function. The state and action sets $S$ and $A$ may be a discrete collection or a continuous range. The reward function $R$ maps state-action pairs to numerical rewards, and the transition $T$ maps state-action pairs to distributions over next-states. Usually, $S$ and $A$ are given, and $R$ and $T$ begin unknown and must be learned.
 
@@ -75,28 +75,9 @@ The act of finding an optimal or near-optimal policy for a known MDP is called \
 
 Value iteration, outlined in Algorithm~\ref{alg:vi}, is a planning method which applies the idea of dynamic programming to solving an MDP with a discrete state space and discrete action space. The values that are iterated are the Q-values. The Q-values are given some initial guess (for instance, zero), and Equations~\ref{intro:eqn:value}~and~~\ref{intro:eqn:qvalue} are applied iteratively to all state-action pairs (for the Q-value) and to all states (for the value).
 
-Once the difference between successive estimates of the Q-values, measured by the $\infty$-norm\footnote{The infinity norm of a vector is the absolute value of its largest element.}, is smaller than $(1-\gamma)\epsilon/2$, the difference between the last estimate and the truth is guaranteed to be no larger than $\epsilon$ \note{Check Puterman's book for the exact result.}. Eventually, the error will shrink to an acceptably small level, and an approximately optimal policy will be found.
+Once the difference between successive estimates of the Q-values, measured by the $\infty$-norm\footnote{The infinity norm of a vector is the absolute value of its largest element.}, is smaller than $(1-\gamma)\epsilon/2$, the difference between the last estimate and the truth is guaranteed to be no larger than $\epsilon$. Eventually, the error will shrink to an acceptably small level, and an approximately optimal policy will be found.
 
-For manageably small numbers of states and actions, value iteration is an effective and easy method for planning. Because the minimum accuracy $\epsilon$ is specified, the algorithm is gauranteed to finish after a finite number of ``sweeps'' of updates over the states, so long as the maximum reward attainable for any state is finite.
-
-\note{ml: if some reward is infinite, things still should converge in finite time.  the bad case, I guess, is if rewards are unbounded.  that would mean that there is an infinite number of states.}
-
-If the maximum and minimum reward, or $\Rmax$ and $\Rmin$, is known exactly, the maximum number of value-iteration sweeps can be calculated. \note{[where can I get more information about this claim?  are you about to elaborate?]} In considering one possible return $R=\sum_{t=0}^\infty \gamma^t r_t$, we can separate it into two sections: those rewards achieved before $T$ steps and those achieved after and including step $T$. Let's consider the pathological case where all steps after and including step $T$ have a reward of $\Rmax$. Then, the return is
-\begin{eqnarray}
-R &=& \sum_{t=0}^{T-1} \gamma^t r_t + \sum_{t=T}^\infty \gamma^t \Rmax,\\
-&=& \sum_{t=0}^{T-1} \gamma^t r_t + \Rmax \frac{\gamma^T}{1-\gamma}.
-\end{eqnarray}
-
-Because $\Rmax$ was chosen for each reward in the latter part of the return, it has the maximum possible influence. There is some value for $T$ that will set the contribution of this part of the expression to $\epsilon$:
-\begin{eqnarray}
-\epsilon &=& \Rmax \frac{\gamma^T}{1-\gamma},\\
-{\gamma^T} &=& \frac {\epsilon (1-\gamma)} \Rmax,\\
-T &=& \log_\gamma\left(\frac {\epsilon (1-\gamma)} \Rmax\right).
-\end{eqnarray}
-
-Assuming without loss of generality that the smallest possible reward $\Rmin=0$, any return can be approximated to within $\epsilon$ by the discounted sum of its first $\log_\gamma\left(\epsilon \frac {1-\gamma} \Rmax\right)$ rewards. \note{[not clear... what about the differences in the first part of the sequence?]}
-
-If value iteration is run with $T=\log_\gamma\left(\epsilon \frac {1-\gamma} \Rmax\right)$ iterations, the values that it assigns to each state will be within $\epsilon$ of the truth. Since the value of a state is the sum of all the rewards you can get starting at that state, weighted by how likely they are under the optimal policy and by how many steps they are into the future, we can follow the rewards from their sources (the actions that triggers them) backwards through the MDP to the state whose value we're inspecting. After one sweep of value iteration, the state that the action was performed in sees the effect of the reward. After two sweeps, the states that can reach the first state see the effect. After $T$ sweeps, the reward has propagated to states that require $T$ steps to achieve it. At this point, the value for each state in the MDP takes into account all rewards that are achievable in no more than $T$ steps. Since rewards that take longer to get are too discounted to matter, no more work needs to be done. \note{[you need to have a nice intuitive explanation like this *and* math to back it up.]}
+For manageably small numbers of states and actions, value iteration is an effective and easy method for planning. Because the minimum accuracy $\epsilon$ is specified, the algorithm is gauranteed to finish after a finite number of ``sweeps'' of updates over the states.
 
 \begin{algorithm}[tb]
 	\caption{$\mbox{Value iteration}(S, A, R, T, \gamma, \epsilon)$}
@@ -112,7 +93,7 @@ If value iteration is run with $T=\log_\gamma\left(\epsilon \frac {1-\gamma} \Rm
 		$e_i \leftarrow 0$\\
 		\For {$s \in S$} {
 			\For {$a \in A$} {
-				$Q_i(s,a) \leftarrow R(s,a) + \gamma \sum_{s'} T(s,a)(s') V_{i-1}(s')$
+				$Q_i(s,a) \leftarrow R(s,a) + \gamma \sum_{s'} T(s'|s,a) V_{i-1}(s')$
 			}
 			$V_i(s) \leftarrow \max_a Q_i(s,a)$\\
 			$e_i \leftarrow max(e_i, |V_i(s)-V_{i-1}(s)|)$\\
@@ -173,26 +154,21 @@ Figure~\ref{intro:bamdp-traversal} shows a brief MDP traversal and the equivalen
 
 The intuition behind the accuracy of the BAMDP for Bayesian-optimal decision making follows. Given some current belief-state for the agent, there is some set of next belief-states that can occur (this set may be infinite or continuous) for each action. The probability of each possible next belief-state is well-defined, and the posterior represented by the belief-state is the combination of the previous posterior and the step that could theoretically have occurred: each of the next belief-states represent one possible world that could result from taking one of the actions.
 
-\note{[give the equations; that would help]}
-
-\reply{
 With a model prior $\phi$ that supports MDPs with state-space $S$, action-space $A$, and discount factor $\gamma$, the corresponding BAMDP is a new MDP with the same action-space and discount factor, but a new state-space. The state-space is $S\times H$, where $H$ is the set of all possible sequences of transitions, where a transition is a tuple $(s, a, s', r)$. The prior $\phi$ can then be conditioned on a history $h$ to get the posterior $\phi|h$. The transition function of the BAMDP $M|\phi$ is then defined to be
 \begin{eqnarray}
 P(\langle s', h+(s,a,s',r)\rangle|\langle s, h\rangle, a) &=& \int_M P(s', r|s,a,M) \phi(M|h) dM. \label{sec:intro:bamdp-transition}
 \end{eqnarray}
 In Equation~\ref{sec:intro:bamdp-transition}, the transition likelihood to the concrete state in question, $s'$, is considered for all possible MDPs $M$ and weighted according to their posterior likelihoods, taken from $\phi|h$.
-}
 
 Finding the value of a belief-state can then be done recursively via dynamic programming, treating the set of next belief-states as a set of independent planning problems solved in the exact same way. When the agent takes a step in the actual environment, the agent's new belief matches exactly one of the beliefs considered in the planning problem from the previous state.
 
-If the environment is truly drawn from the agent's prior, simulating experience according to the prior and calculated posteriors is the exact same process as running through a single trajectory in the experiment. In fact, the entire BAMDP is known perfectly. Unfortunately, it is usually difficult to completely solve\note{[how large?]}\reply{, since the complete BAMDP has an infinite number of states. Even if we consider only those states reachable in a fixed number of steps (sufficient for approximate planning when there is a discount factor), the number of reachable BAMDP belief-states grows exponentially with that horizon length, the number of actions, and the number of different concrete states reachable in a given transition.
-}
+If the environment is truly drawn from the agent's prior, simulating experience according to the prior and calculated posteriors is the exact same process as running through a single trajectory in the experiment. In fact, the entire BAMDP is known perfectly. Unfortunately, it is usually difficult to completely solve, since the complete BAMDP has an infinite number of states. Even if we consider only those states reachable in a fixed number of steps (sufficient for approximate planning when there is a discount factor), the number of reachable BAMDP belief-states grows exponentially with that horizon length, the number of actions, and the number of different concrete states reachable in a given transition.
 
 \subsubsection{PAC-BAMDP}
 
 \emph{Probably Approximately Correct for Bayes Adaptive MDPs} (also known as near Bayes-optimal~\cite{kolter09}), or PAC-BAMDP~\cite{araya2012near}, is an optimality guarantee for Bayesian reinforcement-learning.
 
-Exact Bayes-optimal policy inference is generally intractable. Even with a small number of discrete actions and discrete states with a finite horizon, the size of the tree grows exponentially with its depth (with $A$ actions, $S$ states, and a depth of $d$, there can be up to $(A S)^d$ nodes visited by any algorithm. This growth rate means that even if we limit our planning to some depth\footnote{With a discount factor $\gamma$, an accuracy constraint $\epsilon$, and a maximum value $\Vmax$, we need not consider anything farther than $\log_\gamma \frac \epsilon \Vmax$ steps away. }\note{[cite your analysis earlier] for the footnote}, fully evaluating every possibility is very expensive.
+Exact Bayes-optimal policy inference is generally intractable. Even with a small number of discrete actions and discrete states with a finite horizon, the size of the tree grows exponentially with its depth (with $A$ actions, $S$ states, and a depth of $d$, there can be up to $(A S)^d$ nodes visited by any algorithm. This growth rate means that even if we limit our planning to some depth\footnote{With a discount factor $\gamma$, an accuracy constraint $\epsilon$, and a maximum value $\Vmax$, we need not consider anything farther than $\log_\gamma \frac \epsilon \Vmax$ steps away (see the Bounded Horizon Lemma for details). }, fully evaluating every possibility is very expensive.
 
 As is common in machine-learning tasks, we can opt to satisfy ourselves with a probably approximately correct variation. Instead of considering all possible next belief-states in the search tree, we may consider a sufficiently representative subset. Limiting ourselves to the smaller set introduces some probability of failure, denoted $\delta$. In general, as $\delta$ grows small, the necessary size of the subset grows large. Instead of searching infinitely deep into the tree, we may consider nodes only up to a certain depth. Searching only to some depth introduces an accuracy error, denoted $\epsilon$. In general, as $\epsilon$ goes to zero, the necessary depth of the search tree goes to infinity.
 
@@ -204,11 +180,8 @@ An example of an $\epsilon$-$\delta$-Bayes optimal algorithm that requires zero 
 
 PAC-BAMDP can then be called a compromise between a reinforcement-learning algorithm's sample complexity and computation complexity. \alg{Sparse Sampling} on the BAMDP has a sample complexity of $0$, but an exponential computation complexity. Chapter~\ref{sec:relmbbrl}, on related work, and Chapters~\ref{sec:boss}~and~\ref{sec:bfs3}, on the contributions of this dissertation, describe algorithms with PAC-BAMDP guarantees and several ways to approach the computation complexity issue.
 
-\subsubsection{Proving PAC-MDP}
-
-
-\newcommand{\A}{$\mathbf{A}$\ }
-\newcommand{\As}{$\mathbf{A}$'s\ }
+\subsubsection{The PAC-MDP Theorem}
+\label{sec:intro:pacmdp-theorem}
 
 This section presents a framework for proving that an algorithm offers a PAC-MDP guarantee.
 
@@ -216,18 +189,47 @@ This proof is an adaptation of earlier work~\cite{lihong09pacmdp,kearns02} with 
 
 \newtheorem*{horizonlemma}{Bounded Horizon Lemma}
 \begin{horizonlemma}
-\note{lemma 2 from lihong's thesis}
-
-\label{sec:pacmdp:horizon-error}
 Let $V^\pi_m(s,H)$ be the expected value of following policy $\pi$ in MDP $m$ for $H$ steps, starting at state $s$. Then,
 \begin{eqnarray}
 V^\pi_m(s,H) &\geq& V^\pi_m(s) - \epsilon_H,
 \end{eqnarray}
 when
 \begin{eqnarray}
-H&=&\frac 1 {1-\gamma} \ln\left(\frac \Vmax {\epsilon_H}\right).
+H&=&\log_\gamma(\epsilon_H/\Vmax).
 \end{eqnarray}
-\note{note to self: there should probably be a $\Vmax$ in here. specifically, why not just $\ln_\gamma(\epsilon_H/\Vmax)$?}
+
+\begin{proof}
+Let the return $R$ be the discounted sum of rewards from time-step $0$ onwards, and $R(H)$ be the discounted sum of rewards for the first $H$ steps. That is,
+\begin{eqnarray}
+R &=& \sum_{t=0}^\infty \gamma^t r_t,\\
+R(H) &=& \sum_{t=0}^{H-1} \gamma^t r_t.
+\end{eqnarray}
+Assuming without loss of generality that $0\leq r_t \leq \Rmax$, we can bound the difference between $R$ and $R(H)$:
+\begin{eqnarray}
+R - R(H) &=& \sum_{t=H}^\infty \gamma^t r_t,\\
+ &\leq& \sum_{t=H}^\infty \gamma^t \Rmax,\\
+ &\leq& \frac {\gamma^H} {1-\gamma} \Rmax,\\
+ &\leq& \gamma^H \Vmax.
+\end{eqnarray}
+Therefore, to bound the difference at $\epsilon_H$, we must choose an $H$ such that
+\begin{eqnarray}
+\epsilon_H &=& \gamma^H \Vmax,\\
+H &=& \log_\gamma\left(\frac{\epsilon}{\Vmax}\right).
+\end{eqnarray}
+If choosing $H$ this way bounds the difference between any sequence of returns and its $H$ horizon to $\epsilon_H$, it must also bound the expected return under any policy.
+\end{proof}
+
+%This Lemma is a minor adaptation from previous work~\cite{lihong09horizonlemma} to allow for values bounded by $\Vmax$ instead of values bounded by $1$.
+
+%\label{sec:pacmdp:horizon-error}
+%Let $V^\pi_m(s,H)$ be the expected value of following policy $\pi$ in MDP $m$ for $H$ steps, starting at state $s$. Then,
+%\begin{eqnarray}
+%V^\pi_m(s,H) &\geq& V^\pi_m(s) - \epsilon_H,
+%\end{eqnarray}
+%when
+%\begin{eqnarray}
+%H&=&\frac 1 {1-\gamma} \ln\left(\frac \Vmax {\epsilon_H}\right).
+%\end{eqnarray}
 \end{horizonlemma}
 
 \newtheorem*{simlemma}{Simulation Lemma~\cite{lihong09simlemma,kearns02}}
@@ -287,7 +289,8 @@ V_t(s) &=& Q_t(s,\pi_t(s)).
 Note that $Q_t(s,a)$ is defined only for \emph{known} state-action pairs. For \emph{unknown} state-action pairs, \A may calculate $Q_t(s,a)$ however it wishes.
 \end{defn}
 
-\begin{thm}
+\newtheorem*{pacmdpthm}{PAC-MDP Theorem}
+\begin{pacmdpthm}
 Let the following conditions be true.
 \begin{enumerate}
 \item
@@ -306,10 +309,10 @@ Then, the expected number of sub-$\epsilon$-optimal actions chosen by agent \A i
 \begin{eqnarray}
 \delta_l &=& \frac {\epsilon - (\epsilon_u + s(\epsilon_T,\epsilon_R) +2 \epsilon_H)} {\Vmax},\\
 s(\epsilon_T,\epsilon_R) &=& \frac {\epsilon_R + \gamma \Vmax \epsilon_T} {1-\gamma},\\
-H&=&\frac 1 {1-\gamma} \ln\left(\frac  \Vmax {\epsilon_H}\right),\\
-N&\in&\mbox{poly}\left(\frac 1 \epsilon, \Vmax, \frac{1}{1-\gamma}, \ln\left(\frac \Vmax {\epsilon_H}\right), B, C\right).
+H&=&\log_\gamma\left(\frac {\epsilon_H}{\Vmax}\right),\\
+N&\in&\mbox{poly}\left(\frac 1 \epsilon, \Vmax, \frac{1}{1-\gamma},\log\left(\frac {\epsilon_H}{\Vmax}\right), B, C\right).
 \end{eqnarray}
-\end{thm}
+\end{pacmdpthm}
 
 \begin{proof}
 Lemma~\ref{sec:pacmdp:lemma:opt-steps} shows that if a certain event is sufficiently unlikely during a particular step, that step is $\epsilon$-optimal. Lemma~\ref{sec:pacmdp:lemma:bad-steps} shows that the expected number of steps without that quality is bounded by $\frac 1 \delta_l H B C$.
@@ -396,10 +399,12 @@ The expected number of windows per discovery is at most $1/\delta_l$, and since 
 Since there are at most $B C$ discoveries, the expected number of steps during discovery windows is $\frac 1 {\delta_l} H B C$.
 
 Since any steps taken while not in a discovery window must must be $\epsilon$-optimal, the expected number of sub-optimal steps is at most $\frac 1 {\delta_l} H B C$.
-
 \end{proof}
 
+This proof framework provides a straightforward way to prove that certain classes of reinforcement-learning algorithms have a PAC-MDP guarantee. That is not to say that if an algorithm does not satisfy this framework's conditions, it cannot be PAC-MDP---they are sufficient, but not necessary, conditions.
+
 \section{Bayesian inference}
+\label{sec:intro:inf}
 
 Bayesian inference refers to the general technique of combining a prior distribution with observed data to obtain a posterior distribution. Bayesian priors provide principled ways to bring knowledge into a learning problem. The prior distribution encodes the designer's assumption about how the agent's world or environment operates.
 
@@ -484,7 +489,7 @@ The Chinese Restaurant Process, or CRP, is a nonparametric prior that can be use
 \end{figure}
 
 
-The CRP prior likelihood is easy to evaluate online. For a new element, the prior likelihood that it belongs to any given cluster is proportional to the number of elements already in that cluster, and the prior likelihood that it belongs in a new cluster is proportional to a parameter $\alpha$ \note{ml: [isn't there something having to do with its similarity to what's already there?  maybe that's not the prior, though.] jta: no, not part of the prior}.
+The CRP prior likelihood is easy to evaluate online. For a new element, the prior likelihood that it belongs to any given cluster is proportional to the number of elements already in that cluster, and the prior likelihood that it belongs in a new cluster is proportional to a parameter $\alpha$.
 
 Inference on mixture models can often be done with a CRP. A generative mixture model follows. The observed data $X$ and the base measure $G_0$ are given, and $\alpha$ is a parameter that influences cluster size:
 
@@ -510,8 +515,9 @@ The CRP is exchangeable. That is, the order of the elements does not affect the 
 It is worth noting that the number of possible vectors $C$ grows exponentially with the number of elements in $X$. For CRP inference, Gibbs sampling~\cite{andrieu03,neal00} is a practical way to do approximation.
 
 \section{Bayesian models for reinforcement-learning}
+\label{sec:intro:rl-models}
 
-As mentioned briefly at the beginning of this chapter, the Bayesian approach to learning can be applied to modeling reinforcement-learning domains. There exist Bayesian approaches to model-free reinforcement-learning~\cite{dearden98}, but they do not fit within the scope of this dissertation \note{ml: why?} \reply{devoted to model-based reinforcement-learning.}
+As mentioned briefly at the beginning of this chapter, the Bayesian approach to learning can be applied to modeling reinforcement-learning domains. There exist Bayesian approaches to model-free reinforcement-learning~\cite{dearden98}, but they do not fit within the scope of this dissertation devoted to model-based reinforcement-learning.
 
 For model building for reinforcement-learning, we must first start with a model prior. We combine it with observations made by the agent to derive a model posterior. This model posterior can be used for reasoning about future choices that the agent will make.
 
@@ -531,14 +537,11 @@ Because the Dirichlet distribution is conjugate to the multinomial distribution,
 \label{intro:eqn:fdm-s}P(s'|N^{s,a},\alpha) &\propto& \alpha_{s'}+N^{s,a}_{s'}.
 \end{eqnarray}
 
-\note{[reference for these properties?]}
-\reply{
 The derivation for Equations~\ref{intro:eqn:fdm-theta}~and~\ref{intro:eqn:fdm-s} are a result of Equation~\ref{sec:models:dir-mult-conj} in Chapter~\ref{sec:models}.
-}
 
 Equation~\ref{intro:eqn:fdm-theta} gives us the ability to sample from the MDP posterior. Equation~\ref{intro:eqn:fdm-s} gives us the ability to sample experience, and as a result \prior{FDM} can be considered a trajectory prior. This capability is useful if the planner wants only a simulation oracle, and doesn't care about entire models.
 
-This prior is theoretically attractive, since it easily supports all possible discrete-state discrete-action MDPs. but not good at generalizing as it treats estimating each state-action as a separate learning problem. \note{[On the other hand, it *could* be informative… there could be a strong prior for each one and the MDP could essentially be known through the prior.]} \reply{On the other hand, a different choice of the $\alpha$ parameter for each state-action pair can be used to essentially \emph{know} the MDP before hand - with some uncertainty built in where appropriate.} RL agents that rely on the \prior{FDM} prior generally do not significantly outperform non-Bayesian agents\note{[ref?]}; if the prior knowledge states, essentially, that it is an MDP and the transition functions can be any multinomial, this information does not give the Bayesian agent a leg up on other agents, since this assumption will usually be baked into the algorithm design from the beginning. \note{[ok, but a little weak.]}
+This prior is theoretically attractive, since it easily supports all possible discrete-state discrete-action MDPs. but not good at generalizing as it treats estimating each state-action as a separate learning problem. On the other hand, a different choice of the $\alpha$ parameter for each state-action pair can be used to essentially \emph{know} the MDP before hand - with some uncertainty built in where appropriate. RL agents that rely on the \prior{FDM} prior generally are unlikely outperform non-Bayesian agents; if the prior knowledge states, essentially, that it is an MDP and the transition functions can be any multinomial, this information does not give the Bayesian agent a leg up on other agents, since this assumption will usually be baked into the algorithm design from the beginning.
 
 \subsection{Gaussian bandits}
 
@@ -557,9 +560,21 @@ Like the \prior{FDM} prior in Section~\ref{intro:fdm}, the \prior{Gaussian bandi
 
 While the \prior{Gaussian bandit} prior does not model all possible continuous-reward distributions like the \prior{FDM} prior models all possible discrete MDPs, it can still be used to trade-off uncertainty in the mean (indicated by the $\sigma_0^2$ parameter) and knowledge of the mean gathered from data, expressed in Equation~\ref{intro:eqn:gband-post}.
 
-\note{pp: One way of modelling all possible continuous reward distributions is to consider mixtures of Gaussians.  Mixtures of Gaussians are conjugate priors of mixtures of Gaussians.  However the number of mixture components will grow exponentially over time.}
+\section{Model-based Bayesian reinforcement learning}
 
-\note{[there should be some text here to reinforce what this chapter said and how it will be used in later chapters.]}
+This dissertation focuses on developing models appropriate to reinforcement-learning domains, the algorithms that can take advantage of these models to effectively solve the reinforcement-learning problem, and the analysis of these algorithms.
+
+Chapter~\ref{sec:models} will extend the ideas from Section~\ref{sec:intro:inf} and Section~\ref{sec:intro:rl-models} to create more structured and useful models.
+
+Chapter~\ref{sec:relmbbrl} is a survey of existing model-based and Bayesian model-based reinforcement-learning algorithms.
+
+Chapter~\ref{sec:boss} introduces the \alg{Best Of Sampled Set} algorithm and its analysis.
+
+Chapter~\ref{sec:bfs3} introduces the \alg{Bayesian Forward Search Sparse Sampling} algorithm and its analysis.
+
+Chapter~\ref{sec:experiments} reports on several experimental results comparing Bayesian model-based reinforcement-learning algorithms against each other and other model-based reinforcement-learning algorithms.
+
+Chapter~\ref{sec:conclusion} concludes the dissertation and summarizes its contributions.
 
 %
 \ifperchapterbib%

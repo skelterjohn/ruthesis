@@ -1,13 +1,12 @@
 
-In this chapter, we discuss important related work that will influence, directly and indirectly, later contributions. \note{Can you say briefly what dimensions of relatedness you are using?  How are you deciding what to include and what not to include?} Along with algorithms of general interest to a student of model-based Bayesian reinforcement-learning, there are
-\reply{
+In this chapter, we discuss important related work that will influence, directly and indirectly, later contributions. Along with algorithms of general interest to a student of model-based Bayesian reinforcement-learning, there are
 \begin{itemize}
 \item existing model-based RL algorithms used for comparisons in Chapter~\ref{sec:experiments}~\cite{brafman03,jong07}.
 \item algorithms that make use of a flexible prior~\cite{strens00,wang05,sorg10,araya2012near},
 \item model-based Bayesian RL algorithms with PAC-BAMDP guarantees~\cite{kolter09,sorg10,araya2012near}.
 \item the \alg{FSSS} algorithm, which is used as a building block in Chapter~\ref{sec:relmbbrl}, and several other tree search planners~\cite{kearns99,kocsis06}.
 \end{itemize}
-}
+
 \section{RMAX}
 
 The \alg{RMAX}~\cite{brafman03} algorithm is a simple and robust method to balance exploration and exploitation in the reinforcement-learning setting. The original algorithm addresses only discrete state- and action-spaces, but the ideas apply more generally~\cite{nouri09,jong07}.
@@ -53,8 +52,6 @@ Once a policy is found for the {\bf Fitted-RMAX} model, using some existing cont
 
 \section{Bayes-adaptive Markov decision processes}
 
-\note{jta: this is now part of the intro as well, and since this section doesn't describe an algorithm, maybe delete it}
-
 The Bayes-adaptive MDP, or BAMDP~\cite{duff03}, is an MDP whose optimal policy is the Bayes-optimal policy for some other unknown MDP that is drawn from a known prior. Every state in the BAMDP is a belief-state composed of a history, or the set of observations made by the agent so far, and the concrete state that the agent is currently in.
 
 The transition function of the BAMDP is defined as follows:
@@ -62,18 +59,19 @@ The transition function of the BAMDP is defined as follows:
 \label{rel:bamdp:prob}
 P(\langle s', h + (s,a,s',r)\rangle, r | \langle s, h\rangle, a) =& \int_M P(s', r | s, a, M)\phi(M|h) dM,
 \end{eqnarray}
-\note{pp: Why is the distribution over h?  Should it be conditioned on h only?}
 where $s$ and $s'$ are \emph{concrete} states from the unknown MDP, $\langle s, h\rangle$ is a belief-state, in the BAMDP, where the agent begins, and is composed of the concrete state $s$ and history $h$. The value $h$ is the summary of all transitions observed by the agent over the course of its lifetime. Here, they are represented by $(s, a, s',r)$ tuples detailing the beginning and ending concrete states, the action taken and the reward received.
 
 The likelihood of the transition in the BAMDP is taken by integrating out the underlying and unknown ``true'' MDP, according to MDP's posterior distribution. If a next-state sampler is needed, rather than an exact transition probability, the process is to first sample an MDP $M$ from the posterior distribution $\phi(M|h)$, and then sample the next state $s'$ and reward $r$ from $M$.
 
-By constructing the BAMDP according to Equation~\ref{rel:bamdp:prob}, the optimal policy is identical to the Bayes-optimal policy in the learning setting. This fact follows because the succession of transition likelihoods is exactly the same as those indicated in the Bayesian model\footnote{See Chapter~\ref{sec:intro}, Section~\ref{sec:intro:bayes-opt} for a full explanation of why optimal in the BAMDP is Bayes-optimal while learning the MDP.}. \note{ml: Can you sum up why that's important? jta: added footnote}
+By constructing the BAMDP according to Equation~\ref{rel:bamdp:prob}, the optimal policy is identical to the Bayes-optimal policy in the learning setting. This fact follows because the succession of transition likelihoods is exactly the same as those indicated in the Bayesian model\footnote{See Section~\ref{sec:intro:bayes-opt} for a full explanation of why optimal in the BAMDP is Bayes-optimal while learning the MDP.}.
 
-Unfortunately, the BAMDP has potentially an infinite number of states, since each possible history maps to a different belief state. However, as the number of observations from a particular concrete state and using a particular action grows large, the distribution over the possible next concrete states converges, allowing a clever algorithm designer to collect large sets of belief states together into equivalent classes, for the purposes of planning. \note{Has that been done?  What is the status of this algorithm?} \reply{An easy way to make this optimization is to not adjust the posterior when an observation is made for a particular state-action pair $s,a$ if that pair has been observed at least $B$ times in the past, for a choice of $B$ sensible for the prior. This trick can be used in any model-based Bayesian RL algorithm that uses a posterior sampler.}
+Unfortunately, the BAMDP has potentially an infinite number of states, since each possible history maps to a different belief state. However, as the number of observations from a particular concrete state and using a particular action grows large, the distribution over the possible next concrete states converges, allowing a clever algorithm designer to collect large sets of belief states together into equivalent classes, for the purposes of planning. An easy way to make this optimization is to not adjust the posterior when an observation is made for a particular state-action pair $s,a$ if that pair has been observed at least $B$ times in the past, for a choice of $B$ sensible for the prior. This trick can be used in any model-based Bayesian RL algorithm that uses a posterior sampler.
 
 
 
 \section{Bayesian Dynamic Programming}
+
+\label{sec:rel:bdp}
 
 \begin{algorithm}[tb]
 	\caption{$\mbox{Bayesian~DP}(s, \Phi, K)$}
@@ -81,7 +79,7 @@ Unfortunately, the BAMDP has potentially an infinite number of states, since eac
 	\KwIn{initial state $s$, prior $\Phi$, \#steps $K$}
 	$O \leftarrow \{\}$\\
 	\For {ever} {
-		$M \sim \Phi|O$ \bf{ZZZ} pp: Be more precise by making it clear that this is a distribution over phi given O.\\
+		$M \sim \Phi|O$\\
 		$\pi \leftarrow \mbox{solve}(M)$\\
 		\For {$K$ times} {
 			$a \leftarrow \pi(s)$\\
@@ -274,8 +272,6 @@ Where Sparse Sampling is only able to estimate a state's value for a particular 
 
 The method of action-selection differs from Sparse Sampling in that rather than trying each action a number of times, Bayesian Sparse Sampling will run a series of roll-outs (simulated trajectories through the BAMDP). To choose the action at each stage in the roll-out, Bayesian Sparse Sampling samples a model from the posterior and finds the optimal action in the sampled model from the current state, and chooses that state, similar to Thompson sampling~\cite{thompson33}.
 
-\note{ml: wait, if it's doing roll outs, why does it need the sparse sampling tree at all? jta: i don't understand the question}
-
 Choosing actions by identifying the optimal action in posterior samples allows Bayesian Sparse Sampling to target its exploration to attempt only actions that have a chance of being optimal. Also, when the posterior has converged to something close to the truth, the sampled model will be consistent and correct, and Bayesian Sparse Sampling will only choose the best action, wasting no samples in its value estimation.
 
 This algorithm has some efficiency issues; it requires sampling from the posterior and solving for the true optimal action in the inner loop. Both posterior sampling and model solving can often be computationally difficult. There are cases where the posterior sampling and model solving can be done efficiently, for instance when the model is a bandit problem with the Beta prior~\cite{wang05}.
@@ -347,8 +343,6 @@ The key to {\bf UCT} is how it chooses its rollout policy. Variations exist, but
 The bandit algorithm {\bf UCB} mixes exploration and exploitation. The algorithm will always choose the arm that has the greatest sum of average observed reward and a bonus term. The bonus term is a function of the number of times the arm in question has been pulled before, and how many chances the algorithm has had to pull an arm in total.
 
 The bonus term used by {\bf UCB} for arm $i$ is $2 C \sqrt{\frac{\log t}{n_i}}$, where $t$ is the total number of pulls on any arm, $n_i$ is the number of times arm $i$ has been pulled, and $C$ is a constant parameter that can be tuned. This bonus term has the nice properties of going to zero as $t$ goes to infinity (allowing {\bf UCB} to rely completely on average observed reward), and being infinite when $n_i$ is zero (forcing {\bf UCB} to try each action at least once).
-
-\note{ml: the depth of explanation in these later algorithms is good.  consider expanding some of the earlier algorithms, as appropriate.}
 
 {\bf UCT} treats every possible state as a separate bandit algorithm, where each action represents a different bandit arm. As it visits a state again and again in its roll-outs, the {\bf UCB} strategy will push it towards areas of the state-space that are either less explored or have had more favorable returns. This algorithm is also extremely computationally efficient, assuming next-states and rewards can be sampled quickly.
 

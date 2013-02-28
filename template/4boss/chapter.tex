@@ -41,12 +41,12 @@ The posterior sampling black box must have the ability to sample from the set of
 
 As the agent explores the world, taking actions and receiving feedback, it feeds the observations it has received to the posterior sampler. As the posterior sampler gets more and more data, the models sampled from it become more and more accurate, at least where the concentration of samples is high enough.
 
-A posterior sampler can only be useful if some sort of accuracy guarantee is possible. That is, as more observations are made, models sampled from the posterior become closer to the truth, at least in the parts of the model associated with the observations. It is not always the case that a posterior will become more accurate with more data. A simple example is a prior that says that a coin will either always turn up heads or always turn up tails. The moment that both a head and tail have been observed, \reply{ the posterior becomes broken. The posterior distribution for the coin's bias,
+A posterior sampler can only be useful if some sort of accuracy guarantee is possible. That is, as more observations are made, models sampled from the posterior become closer to the truth, at least in the parts of the model associated with the observations. It is not always the case that a posterior will become more accurate with more data. A simple example is a prior that says that a coin will either always turn up heads or always turn up tails. The moment that both a head and tail have been observed, the posterior becomes broken. The posterior distribution for the coin's bias,
 \begin{eqnarray}
 P(\rho|h=1,t=1) &=& \frac{\mbox{Bin}(H=1|\rho,n=2)P(\rho)}{P(H=1,n=2)}, \label{sec:boss:eqn:bad-flip}
 \end{eqnarray}
 is now undefined. The denominator in Equation~\ref{sec:boss:eqn:bad-flip} is zero, since the coin must be either two-headed or two-tailed.
-}
+
 For the general case, I will not specify exact accuracy guarantees. For the special case in Section~\ref{boss:alg:disc} there is a concrete assumption that must be met to guarantee efficiency.
 
 \subsubsection{The planner}
@@ -79,9 +79,8 @@ Although the planner is decoupled from \alg{BOSS}'s operation, it is tied closel
 \end{center}
 \end{figure}
 
-A hyper-model is the combination of some set of $K$ models with identical action and state spaces, but possibly differing dynamics (as in Figure~\ref{sec:boss:hyper-model-creation}). The resulting hyper-model \note{pp: How is the hyper-model constructed?  Be more precise.  Perhaps provide pseudocode.} has the same state space as each of its sub-models, but has one more feature in its action space. This feature, $k\in\{1,...,K\}$, indicates from which sub-model the dynamics of this action are taken. That is, the action $(2, a)$ has the same next-state and reward distributions that action $a$ has in model $2$.
+A hyper-model is the combination of some set of $K$ models with identical action and state spaces, but possibly differing dynamics (as in Figure~\ref{sec:boss:hyper-model-creation}). The resulting hyper-model has the same state space as each of its sub-models, but has one more feature in its action space. This feature, $k\in\{1,...,K\}$, indicates from which sub-model the dynamics of this action are taken. That is, the action $(2, a)$ has the same next-state and reward distributions that action $a$ has in model $2$.
 
-\reply{
 Formally, a hypermodel $m'$ can be constructed from $k$ MDPs $m_1, m_2, ... , m_k$ that have the same state-space $S$ and action-space $A$. They may each have unique transition and reward functions $T$ and $R$. The hypermodel $m'$ has state-space $S$ and action-space $A \times \{i|i\in \mathbb{N},i\geq 1, i\leq k\}$. The transition function for $m'$ is defined to be
 \begin{eqnarray}
 T_{m'}(s'|s,\langle a, i \rangle) &=& T_{m_i}(s'|s, a).
@@ -90,13 +89,13 @@ That is, the probability of ending up in state $s'$ after taking the action $\la
 \begin{eqnarray}
 R_{m'}(s,\langle a, i \rangle) &=& R_{m_i}(s, a).
 \end{eqnarray}
-}
+
 
 Intuitively, an agent acting according to $m'$ is free to choose the dynamics from any of the sampled models during each step. An optimistic agent, one that thinks the best of the unknown, can choose the dynamics that give it the biggest advantage. This is an example of ``optimism in the face of uncertainty'', where the agent is drawn to parts of the state space that are either known to be good, or are not known. With this attack plan, the agent will either get good reward or get good knowledge. Since the amount of knowledge to be learned is usually finite, the agent will visit the unknown states enough to make them known, and be able to act without exploration in the future.
 
 \alg{BOSS}'s method of model creation allows the hyper-model to retain all the optimism of any of its sub-models. The idea is that, for each state, at least one of the $K$ models will predict dynamics at least as good as the true model's dynamics.
 
-The claim that the hyper-model is, for every state, at least as optimistic as any of its sub-models is detailed in Section~\ref{sec:boss:sub-model-optimism}.
+The claim that the hyper-model is, for every state, at least as optimistic as any of its sub-models is detailed in Lemma~\ref{sec:boss:sub-model-optimism}.
 
 It is important to choose $K$ carefully. A low value for $K$ will increase the odds that, for some set of $K$ models, there will be states for which \emph{no} model's dynamics will be as good as the true model's --- this situation breaks any guarantees that \alg{BOSS} offers. A high value for $K$ can cause two problems. First, the amount of work done by the planner increases, sometimes dramatically; the runtime complexity of most discrete-action planning algorithms relies linearly or super-linearly on the number of actions. Second, too much optimism can be a bad thing. In the extreme, as $K \rightarrow \infty$, all possible models will be represented in every set of $K$ sub-models. In this situation, the agent's observations have no effect on the hyper-model, since the likelihood of each sampled model is not taken into account when compositing the sub-models together. With a finite, yet large, $K$, the number of observations required to have a particular state's dynamics be accurate in each of the sub-models grows as a polynomial of $K$. While this growth rate doesn't make a dent in any theoretical guarantees, it does present serious issues in practice.
 
@@ -133,7 +132,7 @@ A discovery event is then defined to occur on the $B^{\mbox{th}}$ transition fro
 
 \section{Theoretical guarantees}
 
-The \alg{BOSS} algorithm is both PAC-MDP and PAC-BAMDP, under slightly different conditions. The difference between optimal and Bayes-optimal, in this situation, hinges on whether the ``true'' MDP is \bed-learnable or the prior itself is \bed-learnable. This distinction is important to make, since with an especially strange prior, the posterior may not converge to something close to the true model after a reasonable number of observations. With this strange prior, \alg{BOSS} will still be PAC-BAMDP, but the Bayes-optimal and optimal policies may differ significantly.
+The \alg{BOSS} algorithm is both PAC-MDP and PAC-BAMDP, under slightly different conditions. The difference between optimal and Bayes-optimal, in this situation, hinges on whether the ``true'' MDP has a bounded sample complexity or the prior itself is has a bounded sample complexity. This distinction is important to make, since with an especially strange prior, the posterior may not converge to something close to the true model after a reasonable number of observations. With this strange prior, \alg{BOSS} will still be PAC-BAMDP, but the Bayes-optimal and optimal policies may differ significantly.
 
 \subsection{Definitions}
 
@@ -168,7 +167,7 @@ where $T_{m}$ is the transition function for MDP $m$.
 
 That is, the likelihood of ending up in state $s'$ while in $\hat m$ is $\epsilon$-close to that likelihood in $m$.
 
-With high probability, when the prior is \bed-learnable, posterior samples will be locally $\epsilon$-accurate for state-action pairs with at least $B$ observed transitions.
+With high probability, when the prior is has a sample complexity of $B$, posterior samples will be locally $\epsilon$-accurate for state-action pairs with at least $B$ observed transitions.
 
 \end{defn}
 
@@ -194,7 +193,7 @@ and if
 \begin{enumerate}
 \item
 \label{sec:boss:pac-bamdp:cond-bed}
-the prior $\phi$ is \bed-learnable with $B$, $\epsilon_0$, and$\delta_0$,
+the prior $\phi$ is has a sample complexity of $B$, with $\epsilon_0$ and$\delta_0$,
 \item 
 \label{sec:boss:pac-bamdp:cond-local-opt}
 a posterior sample is \emph{locally $\epsilon_0$-optimistic} for any arbitrary state-action pair with probability at least $1-\delta_1$,
@@ -225,7 +224,7 @@ These three assumptions are sufficient to ensure, with high probability, a numbe
 
 We declare a state-action pair to be \emph{known} if it has been attempted at least $B$ times. This number of attempts allows the agent to have gathered enough experience to be able to accurately simulate its dynamics, according to Assumption~\ref{boss:alg:disc:proof:cond:acc}. If the state-action pair has been attempted fewer than $B$ times, not enough observations have been made to make an accurate prediction, and it is considered \emph{unknown}. \emph{Unknown} states have optimistic values in the hypermodels, incentivizing the agent to visit them and learn about their dynamics.
 
-In particular, because the prior $\phi$ must be \bed-learnable, we can assume that the dynamics for that state-action pair in a posterior sample are $\epsilon_0$-accurate, for $\epsilon_0 = \epsilon(1-\gamma)/(\gamma\Vmax)$, with high probability. If all state-action pairs in a sampled MDP have $\epsilon_0$-accurate dynamics with respect to the ``true'' MDP, then the simulation lemma~\cite{kearns98,lihong09simlemma} tells us that the optimal policy for that sampled MDP will be an $\epsilon$-optimal policy in the ``true'' MDP.
+In particular, because the prior $\phi$ must have bounded sample complexity, we can assume that the dynamics for that state-action pair in a posterior sample are $\epsilon_0$-accurate, for $\epsilon_0 = \epsilon(1-\gamma)/(\gamma\Vmax)$, with high probability. If all state-action pairs in a sampled MDP have $\epsilon_0$-accurate dynamics with respect to the ``true'' MDP, then the simulation lemma~\cite{kearns98,lihong09simlemma} tells us that the optimal policy for that sampled MDP will be an $\epsilon$-optimal policy in the ``true'' MDP.
 
 
 
@@ -245,7 +244,8 @@ To have an optimistic hyper-model, it is sufficient that for each of the $S A$ s
 First we show that the construction of a hyper-model retains all the optimism of its sub-models.
 
 \begin{lemma}
-A hypermodel $m'$ has a value for each state at least as high as the value of that state in each of the sub-models $m_1, m_2, ..., m_k$.
+\label{sec:boss:sub-model-optimism}
+A hyper-model $m'$ has a value for each state at least as high as the value of that state in each of the sub-models $m_1, m_2, ..., m_k$.
 \end{lemma}
 \begin{proof}
 By augmenting the set of actions available for a single state, we can only raise the value of that state since the value, defined by the Bellman equation,
@@ -314,11 +314,11 @@ The \alg{BOSS} algorithm, by itself, cannot guarantee model accuracy; as a Bayes
 
 \begin{lemma}
 \label{sec:boss:lemma:acc}
-If the prior $\phi$ is \bed-learnable, then every \emph{known} state-action pair in every hyper-model will be \emph{locally $\epsilon_0$-accurate} with probability at least $1-\delta/2$.
+If the prior $\phi$ is has a sample complexity of $B$ for $\delta_0$ and $\epsilon_0$, then every \emph{known} state-action pair in every hyper-model will be \emph{locally $\epsilon_0$-accurate} with probability at least $1-\delta/2$.
 \end{lemma}
 
 \begin{proof}
-Since $\phi$ is \bed-learnable, for a given posterior sample, a particular \emph{known} state-action pair will be \emph{locally $\epsilon_0$-accurate} with probability at least $1-\delta_0$.
+Since $\phi$ has bounded sample complexity, for a given posterior sample, a particular \emph{known} state-action pair will be \emph{locally $\epsilon_0$-accurate} with probability at least $1-\delta_0$.
 
 Since the number of constructed hyper-models is at most $S A$, and $K$ posterior samples go into each hyper-model, \emph{known} state-action pairs have to be \emph{locally $\epsilon_0$-accurate} in at most $K S A$ posterior samples. Each time the posterior is sampled, there are at most $S A$ \emph{known} state-action pairs, so the number of times a \emph{known} state-action pair needs a \emph{locally $\epsilon_0$-accurate} is at most $K S^2 A^2$.
 
@@ -373,11 +373,8 @@ Applying the union bound to these two events holds both true with probability at
 
 \subsection{Approximately Bayes-optimal with high probability}
 
-Lemma~\ref{sec:boss:lemma:opt-acc} shows that all \emph{known} state-action pairs will be \emph{locally $\epsilon_0$-accurate} and all \emph{unknown} state-action pairs will be \emph{locally $\epsilon_0$-optimistic}, in all hyper-models over the course of the agent's lifetime, with high probability. These facts, along with the bounded number of discoveries possible, allow us to connect \alg{BOSS} to a general PAC-MDP guarantee~\cite{lihong09pacmdp}.
+Lemma~\ref{sec:boss:lemma:opt-acc} shows that all \emph{known} state-action pairs will be \emph{locally $\epsilon_0$-accurate} and all \emph{unknown} state-action pairs will be \emph{locally $\epsilon_0$-optimistic}, in all hyper-models over the course of the agent's lifetime, with high probability. These facts, along with the bounded number of discoveries possible, allow us to connect \alg{BOSS} to the general PAC-MDP Theorem, detailed in Section~\ref{sec:intro:pacmdp-theorem}, using the BAMDP.
 
-\begin{lemma}
-With probability at least $1-\delta$, the \alg{BOSS} algorithm will choose $\epsilon$-optimal actions in the BAMDP
-\end{lemma}
 
 %\note{Need to cite the simulation lemma, at least.  Locally accurate dynamics implies near optimal reward.  Oh, also the explore-expliot lemma---if you have a mix of accurate state-action pairs and optimistic state-action pairs, then you either obtain near optimal reward *or* encounter an unknown/optimistic state-action pair.}
 
@@ -385,13 +382,13 @@ With probability at least $1-\delta$, the \alg{BOSS} algorithm will choose $\eps
 
 \section{Proof of PAC-MDP}
 
-By strengthening one of the conditions for PAC-BAMDP, we can ensure that \alg{BOSS} is also PAC-MDP.
+By strengthening one of the conditions, we can ensure that \alg{BOSS} is also PAC-MDP.
 
-Condition~\ref{sec:boss:pac-bamdp:cond-bed} in Section~\ref{sec:boss:pac-bamdp} stated that the prior $\phi$ must be \bed-learnable. That is, if the ``true'' model $m_0$ is sampled from $\phi$, and some observations are made from acting in $m_0$, then with high probability a posterior sample will have accurate dynamics for all state-action pairs with enough example transitions.
+Condition~\ref{sec:boss:pac-bamdp:cond-bed} in Section~\ref{sec:boss:pac-bamdp} stated that the prior $\phi$ must have a sample complexity of $B$. That is, if the ``true'' model $m_0$ is sampled from $\phi$, and some observations are made from acting in $m_0$, then with high probability a posterior sample will have accurate dynamics for all state-action pairs with enough example transitions.
 
 To create a PAC-MDP version, we replace that condition with a new one:
 \begin{enumerate}
-\item The ``true'' model, $m_0$, is \bed-learnable with the prior $\phi$.
+\item The ``true'' model, $m_0$, has a sample complexity of $B$ with the prior $\phi$.
 \end{enumerate}
 After this, the proof is identical. The distinction lies in that $m_0$ is no longer necessarily tied to the prior in any way --- it is only important that the prior can be used to \emph{learn} $m_0$.
 
