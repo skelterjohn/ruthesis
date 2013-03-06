@@ -24,28 +24,50 @@ The values $U_d(s)$ and $L_d(s)$ are the upper and lower bounds on the value of 
 
 \alg{FSSS} is discussed in more detail in Chapter~\ref{sec:relmbbrl}.
 
+\subsection{A modification on \alg{FSSS}}
+\label{sec:bfs3:fsss-modification}
+
+\alg{BFS3} uses a slightly modified version of \alg{FSSS}.
+\begin{enumerate}
+\item \alg{FSSS} will not keep different values based on search depth. That is, $\forall_{d,d'} U_d = U_{d'}$, $L_d=L_{d'}$, $R_d=R_{d'}$, $\mbox{Children}_d = \mbox{Children}_{d'}$, $\mbox{Visited}_d = \mbox{Visited}_{d'}$, and $\mbox{Count}_d = \mbox{Count}_{d'}$. From this point forward, the depth suffix will be dropped.
+\item Since \alg{FSSS} is executed at time-step $t$, call its upper and lower bound functions $U_t$ and $L_t$. Also, have time-step specific versions of each of the other functions ($R$, Children, Visited, and Count). Before \alg{FSSS} is invoked by \alg{BFS3}, let $U_t=U_{t-1}$, $L_t=L_{t-1}$, $R_t=R_{t-1}$, $\mbox{Children}_t=\mbox{Children}_{t-1}$, $\mbox{Visited}_t=\mbox{Visited}_{t-1}$, and $\mbox{Count}_t=\mbox{Count}_{t-1}$.
+\end{enumerate}
+
+The practical effect these changes have is that there is now a single MDP, which we will call $m_\mathcal{A}$, that every call to \alg{FSSS} uses for making its value estimates, and that from time step to time step its estimates will build upon the estimates of the past. \alg{FSSS}'s upper and lower bounds for the value of states in $m_\mathcal{A}$ are true, not probabily approximate, since \alg{FSSS} is using the true transition function for this MDP.
+
 \section{Bayesian Forward Search Sparse Sampling}
 
 \label{sec:bfs3:bfs3}
 
 \begin{algorithm}[tb]
-	\caption{$\mbox{BFS3}(s, h, d, C, t, \phi)$}
+	\caption{$\mbox{BFS3}(t, s, h, d, C, T, \phi)$}
 	\label{alg:bfs3}
-	\KwIn{state $s$, history $h$, depth $d$, branching factor $C$, \#trajectories $t$, MDP prior $\phi$}
+	\KwIn{time step $t$, state $s$, history $h$, depth $d$, branching factor $C$, \#trajectories $T$, MDP prior $\phi$}
 	\KwOut{action to take in state $s$}
-	\If {$\langle s,h\rangle \in K$} {
-		\Return $\pi(\langle s,h \rangle)$
+	Let $x=\langle s, h\rangle$\\
+	\If {$x \in K$} {
+		\Return $\pi_t(x)$
 	}
 	\ForEach {$a \in A$} {
-		$q(a) \leftarrow 0$\\
-		\For {$C$ times} {
-			$\langle s', h'\rangle , r \sim {T\mbox{-}R}_\phi(\langle s,h\rangle, a)$\\
-			$q(a) \leftarrow q(a) + \frac 1 C \left[r+ \gamma FSSS(\langle s', h'\rangle, d, C, t, M_\phi)\right]$
+		\If {$\mbox{Children}_t(x) = \{\}$} {
+			$x', r \sim {T\mbox{-}R}_\phi(x, a)$\\
+			$\mbox{Children}_t(x) \leftarrow \mbox{Children}_t(x) \bigcup \{x'\}$\\
+			$\mbox{Count}_t(x, a, x') \leftarrow \mbox{Count}_t(x, a, x')+1$\\
+			$R_t(x, a) \leftarrow R_t(x, a) + \frac r C$
+		}
+		\ForEach {$x' \in \mbox{Children}_t(x, a)$} {
+			Run $FSSS(x', d, C, T, M_\phi)$\\
+		}
+		$U_t(x, a) \leftarrow R(x, a)$\\
+		\ForEach {$x' \in \mbox{Children}_t(x, a)$} {
+			$U_t(x, a) \leftarrow U_t(x, a) + \gamma \frac {\mbox{Count}_t(x, a, x')} C U_t(x')$
 		}
 	}
-	$K \leftarrow K \bigcup \{\langle s,h\rangle\}$\\
-	$\pi(\langle s,h\rangle) \leftarrow \argmax_a q(a)$\\
-	\Return $\pi(\langle s,h\rangle)$\\
+	\If {$\pi_t \neq \pi_{t-1}$} {
+		$K \leftarrow \{\}$
+	}
+	$K \leftarrow K \bigcup \{x\}$\\
+	\Return $\pi_t(x)$\\
 \end{algorithm}
 
 
@@ -68,7 +90,7 @@ This process is used whenever \alg{BFS3} or its subroutine \alg{FSSS} sample a n
 
 First, an MDP $M$ is sampled from the posterior $\phi|h$. Once it is sampled, then the next state and reward are sampled from $M$. Sometimes this posterior sampling can be computationally expensive, since inference is generally a hard probelm. The \alg{BFS3} algorithm can only work effectively if this step is fast. Fast posterior sampling is possible with many priors, including the very simple \prior{FDM}, but also more structured priors can be used with efficient inference --- all the priors used with \alg{BFS3} in Chapter~\ref{sec:experiments} have efficient posterior inference.
 
-To reconstruct the resulting belief-state, we pack the resulting concrete state $s'$ with the new history made by augmenting $h$ with $(s, a, s', r)$, resulting in a transition from belief-state $\langle s, h\rangle$ to $\langle s', h + (s,a,s',r)\rangle$.  In many cases, the history $h$ can be summarized by a more compact sufficient statistic. For instance, with discrete-state and -action MDPs, only a histogram of next-states needs to be kept for each state-action pair, and the exact sequence that these transitions happened in is irrelevant.
+To reconstruct the resulting belief-state, we pack the resulting concrete state $s'$ with the new history made by augmenting $h$ with $(s, a, s', r)$, resulting in a transition from belief-state $\langle s, h\rangle$ to $\langle s', h + (s,a,s',r)\rangle$, except in cases where $h$ has $B$ examples of transitions from $(s,a)$, where the new belief state, $\langle s', h \rangle$, has an unchanged history.  In many cases, the history $h$ can be summarized by a more compact sufficient statistic. For instance, with discrete-state and -action MDPs, only a histogram of next-states needs to be kept for each state-action pair, and the exact sequence that these transitions happened in is irrelevant.
 
 Figure~\ref{fig:bfs3} illustrates \alg{BFS3}'s process for each belief-state visited by the agent. In future steps through the environment, the agent may find itself in one of the reachable belief-states in the search tree --- all of the reachable belief-states represent one possible concrete state and history that, with some probability, may be the root of \alg{BFS3}'s search tree in some future situation. 
 
@@ -80,7 +102,7 @@ Although it is consistent to use any sample-based planner for \alg{BFS3}, \alg{F
 
 The \alg{BFS3} process is detailed in Algorithm~\ref{alg:bfs3}, which references Algorithm~\ref{alg:fs3} in Chapter~\ref{sec:relmbbrl}. Every time the agent arrives in a new belief-state $\langle s, h\rangle$, it simulates each action $C$ times, to get a set of $C \times A$ next belief-states and rewards. Then, \alg{FSSS} is used to find the upper bound on the value of each of the next belief-states. Once their optimistic values are found, \alg{BFS3} will average all the sums of the discounted values and rewards together to get an estimate of the Bayes-expected value of taking that action, and choose the action that maximizes this quantity.
 
-All histories should only take into account the first $B$ transitions from a given state-action pair, where $B$ is the number of transitions required to have accurate posterior samples for any particular state-action. The exact value for $B$ is tied to the \bed-learnable condition in Section~\ref{sec:bfs3:pac-bamdp-informal}, condition~\ref{theorem:cond-acc}.
+All histories should only take into account the first $B$ transitions from a given state-action pair, where $B$ is the number of transitions required to have accurate posterior samples for any particular state-action. The exact value for $B$ is determined by the prior's sample complexity, and is tied to the accuracy condition in Section~\ref{sec:bfs3:pac-bamdp-informal}, Condition~\ref{theorem:cond-acc}.
 
 Putting a limit on the number of transitions to remember for a particular state-action pair does two important things. First, it means it is possible for the agent to end up in the same effective belief-state more than once\footnote{Normally, an agent would never experience the same belief-state twice, because every step it takes grows the history by one transition.}. This allows \alg{BFS3} to reuse past decisions and puts a bound on the number of decisions that can be made, saving computation time. Second, it aids in the PAC-BAMDP proof, since the number of random events that need to succeed is bounded.
 
@@ -101,44 +123,50 @@ Putting a limit on the number of transitions to remember for a particular state-
 \label{sec:bfs3:pac-bamdp-informal}
 
 If certain reasonable prerequisites are satisfied, then with high probability, \alg{BFS3} will choose actions that are approximately Bayes-optimal except for a small number of times.
+
+\begin{defn}
+Let $m_\mathcal{A}$ be the MDP given to \alg{FSSS}, as described in Section~\ref{sec:bfs3:fsss-modification}, and let $\pi_t(x) = \argmax_a Q_t(x,a)$, where $Q_t$ is the upper bound on the value, as determined by \alg{FSSS} at time-step $t$.
+\end{defn}
+
+\begin{defn}
+An \emph{unknown} state-action pair is one with fewer than $B$ visits. A \emph{known} state-action pair is any state-action pair with at least $B$ visits.
+\end{defn}
+
+\begin{defn}
+A \emph{pinned} belief state is one with an $\epsilon_A$-accurate value according to $V_t$. That is, $|V_t(s)-V_{\mathcal{A}}(s)|\leq\epsilon_A$. It is important to note that the agent does not necessarily know which belief states are pinned.
+\end{defn}
+
+\begin{defn}
+Let $C$ be the quantity such that $C$ samples from a transition function are enough to create an $\epsilon_T^C$-accurate approximation with probability at least $1-\delta_T^C$, and such that $C$ samples from a reward function are enough to create an $\epsilon_R^C$-accurate approximation with probability at least $1-\delta_R^C$. Since \alg{BFS3}'s sample complexity does not depend on a particular value for $C$, only on the accuracies and success probabilities, it is sufficient to assert that such a value for $C$ exists, without finding it, for the proof of PAC-BAMDP.
+\end{defn}
+
 \begin{thm}
-If, with MDP prior $\phi$,
+\label{bfs3:proof-of-pacbamdp}
+With probability at least $1-\delta$, the expected number of sub-$\epsilon$-Bayes-optimal actions taken by \alg{BFS3} is at most $BSA(S+1)d/\delta_l$ if the following assumptions are true.
 \begin{enumerate}
 \item
 \label{theorem:cond-acc} 
-for any state-action pair $(s,a)$, a history $h$ that is made of observations sampled from $m_0$ and contains at least $B$ examples of transitions from $(s, a)$,
-$$\left|T_{m_0}(s'|s,a) - T_{\phi|h}(s'|s,a)\right| \leq \epsilon_l,$$
-with probability at least $1-\delta_l$,
-where $T_{\phi}(s'|s,a) =\int_m \phi(m|h) T_m(s'|s,a) dm$ is the posterior transition likelihood,
+Accuracy: The prior's transition function and reward function have a sample complexity of at most $B$, for a transition accuracy of $\epsilon_T$ with probability at least $1-\delta_T$, and a reward accuracy of $\epsilon_R$ with probability at least $1-\delta_R$.
 \item
-\label{theorem:cond-fsss}
-\alg{FSSS}, given the true MDP $m_0$, $T$ trajectories, searching up to depth $D$, with a branching factor of $C$, can provide $\epsilon_p$-accurate value estimates with probability at least $1-\delta_p$, and 
+\label{bfs3:cond:opt}
+Optimism: If running \alg{FSSS} on belief-state $x$ results in $V_t(x)> V_A(x) + \epsilon_A$ (that is, afterwards $x$ remains an unpinned belief state), then $\pi_t$ leads from $x$ through a sequence of at most $d$ unpinned belief states, ending with an unknown state-action pair, with probability at least $\delta_l$, where $d$ is the search depth used by \alg{FSSS}.
 \end{enumerate}
-then, with probability at least $1-\delta$, \alg{BFS3} will behave $\epsilon$-Bayes-optimally for all but a number of steps that is polynomial with the number of states, the number of actions, $\gamma$, $\epsilon$, $\delta$, and $B$, where
-\begin{eqnarray}
-\epsilon_l &=&,\\
-\delta_l &=&,\\
-\epsilon_p &=&,\\
-\delta_p &=&.
-\end{eqnarray}
 \end{thm}
-
-Prerequisite~\ref{theorem:cond-acc} can be interpreted as the expected posterior likelihood of a transition being $\epsilon_l$-close to the true likelihood of that transition.
 
 \begin{proofsketch}
 
 First, we will show that there is a BAMDP, constructed from the prior $\phi$, whose optimal policy is the Bayes-optimal policy for $m_0\sim \phi$. Then, we will show that \alg{BFS3}, acting in the BAMDP, will satisfy the three criteria required for PAC-MDP behavior~\cite{kakade03,lihong09pacmdp} in that BAMDP\footnote{PAC-MDP behavior in the BAMDP implies near Bayes-optimal behavior in the learning setting.}.
 These criteria are: \begin{inparaenum} \item accuracy, \item bounded discoveries, and \item optimism. \end{inparaenum}
 
-First, because of Prerequisite~\ref{theorem:cond-acc} in our theorem statement, we know that once we have received $B$ examples of transitions from a state-action pair $(s,a)$, our estimate of the next-state distribution for that pair will be accurate.  (This condition need not hold for degenerate priors, but it appears to hold quite broadly.)
+First, because of Assumption~\ref{theorem:cond-acc} in our theorem statement, we know that once we have received $B$ examples of transitions from a state-action pair $(s,a)$, our estimate of the next-state distribution for that pair will be accurate.  (This condition need not hold for degenerate priors, but it appears to hold quite broadly.)
 
 Second, since we forget all additional transitions from state-action pairs for which we have seen $B$ examples, the number of possible state-histories that an agent can observe is bounded.  Specifically, each time a transition from some state-action $(s,a)$ is observed, either no change will be made to the state-action's histogram (it already sums to $B$), or exactly one entry in the histogram will be incremented by $1$.  Since the histogram can be changed at most $B$ times, the total number of histories possible for an agent over the course of a single experiment is $B \cdot S \cdot A$ ($B$ histories for each state-action pair).
 
 A discovery event, or one that potentially changes the MDP posterior, is an event that results in a change to the history. There are $B \cdot S \cdot A$ discoveries possible, since other transitions will be forgotten.
 
-Third, $\mathbf{FSSS}(s',d,C,t,M_\phi)$ is guaranteed to have an optimistic value estimate for belief-state $s'$ as $t$ (the number of trajectories), our bounded resource, grows smaller. We also know that, from Prerequisite~\ref{theorem:cond-fsss} of the theorem, $t$ is sufficient to find accurate estimates of $s'$ if all states in $s'$'s subtree have converged next-state posteriors. Simply put, if $s'$'s subtree has no unknown state-action pairs, then \alg{FSSS}'s estimate of that state's value will be accurate.  As a result, if \alg{FSSS}'s estimate of a state's value is inaccurate, there must be something to learn about in $s'$'s subtree. \alg{FSSS} guarantees that this inaccuracy will be optimistic.
+Third, $\mathbf{FSSS}(x',d,C,T,M_\phi)$ is guaranteed to have an optimistic value estimate for belief-state $x'$ as $T$ (the number of trajectories), our bounded resource, grows smaller. We also know that, from Assumption~\ref{bfs3:cond:opt} of the theorem, $T$ is sufficient to find accurate estimates of $x'$ if all states in $s'$'s subtree have converged next-state posteriors. Simply put, if $x'$'s subtree has no unknown state-action pairs, then \alg{FSSS}'s estimate of that state's value will be accurate.  As a result, if \alg{FSSS}'s estimate of a state's value is inaccurate, there must be something to learn about in $x'$'s subtree. \alg{FSSS} guarantees that this inaccuracy will be optimistic.
 
-Also possible is that the value estimate of $s'$ is accurate \emph{and} there are unknown states in its subtree. In this case, the agent can decide whether or not to visit that state fully informed of its value, and can take a Bayes-optimal action.
+Also possible is that the value estimate of $x'$ is accurate \emph{and} there are unknown states in its subtree. In this case, the agent can decide whether or not to visit that state fully informed of its value, and can take a Bayes-optimal action.
 
 The PAC-MDP criteria direct the agent to areas of either high value or high uncertainty, managing the exploration/exploitation tradeoff. Because the agent will only go to areas of high uncertainty over areas of high reward a bounded number of times that grows linearly with the number of possible discovery events, we bound the number of sub-optimal steps taken over the lifetime of the agent.
 \end{proofsketch}
@@ -149,344 +177,193 @@ The PAC-MDP criteria direct the agent to areas of either high value or high unce
 This section presents the detailed argument that \alg{BFS3} is near
 Bayes-optimal.
 
+There are two distinct steps to this proof. The first step is to find the likelihood that all estimates are accurate. That likelihood is then the likelihood that \alg{BFS3} will be $\epsilon$-Bayes optimal for all but a small expected number of steps. The second step is to bound that number, assuming all estimates are accurate.
 
-\subsection{Terms}
-\begin{itemize}
-\item $B$ is the maximum number of transitions that will be observed from any particular state-action pair. All subsequent transitions will not be recorded.
-\item The history $h\in H$ is the collection of the first $B$ observed transitions $(s,a)\rightarrow s'$.
-\item $\phi$ is the MDP prior. $\phi|h$ is the MDP posterior.
-\item $m_0$ is the unknown true MDP.
-\item $T_m(s'|s,a)$ is the probability of going from $s$ to $s'$ when performing action $a$ in some MDP~$m$.
-\item $R_m(s,a)$ is the known reward function of MDP $m$.
-\item The \emph{experiment} is the possibly infinite sequence of $o_{t+1} = (s_t,a_t,s_{t+1},r_t)$ observations made by the agent, each with the likelihood
-$$P(o_{t+1}|o_1,o_2,...,o_{t+1}) = T_{m_0}(s_{t+1}|s_t,a_t)\mathbb{1}(r_t = R_{m_0}(s_t,a_t)).$$
-That is, the sequence of observations making up the experiment comes from $m_0$.
-\item $T_{\phi|h}(s'|s,a)=\int_m \phi(m|h)T_m(s'|s,a) dm$ is the posterior transition likelihood, integrated over all possible MDPs.
-\item $V_m(s)$ is the true value of state $s$ according to MDP $m$.
-\item $\mbox{FSSS}_m(s, X)$ is the value of state $s$ estimated by \alg{ FSSS} when using $s$ as a root, $m$ as an oracle (that samples next-states given a state-action pair), and with computational resource bounds represented by $X$. In this context, $X$ is the number of trajectories, the branching factor, and the search depth that \alg{FSSS} uses to perform roll-outs.
-\end{itemize}
+\subsection{Definitions}
 
-\subsection{Assumptions}
-\begin{enumerate}
-\item \label{fsss-acc} The {\bf planning assumption}: For any $s$, with probability at least\ $1-\delta_p$, 
+This section will list several definitions important to the proof.
+
+\begin{defn}
+Let $H$ be the set of all histories, which are sequences of $(s,a,r,s')$ transitions.
+\end{defn}
+
+\begin{defn}
+Let $X=S\times H$ be the set of belief states.
+\end{defn}
+
+\begin{defn}
+Let the BAMDP $m_\phi$ be the MDP with state space $X$, action space $A$, and the transition and reward functions:
 \begin{eqnarray}
-|\mbox{FSSS}_{m_0}(s, X)-V_{m_0}(s)| &\leq& \epsilon_p,\\
-\mbox{FSSS}_{m}(s, X) - V_{m}(s) &\geq&\epsilon_p.
+T_{m_\phi}(x'|x,a)= T_{m_\phi}(\langle s', h'\rangle|\langle s, h)\rangle, a) &=& f(h'|h,s,a) \int_m \phi(m|h)T_m(s'|s,a) dm,\\
+f(h'|h,s,a) &=& \mathbb{1}[h'=h+(s,a,r,s')],\\
+R_{m_\phi}(x,a) = R_{m_\phi}(\langle s, h)\rangle, a) &=& \int_m \phi(m|h) R_m(s,a).
 \end{eqnarray}
-In other words, \alg{FSSS} will estimate values accurately if it is given the true model, and will estimate values optimistically if it is given any model.
-\item \label{sa-bound} The {\bf accuracy assumption}: For some state-action pair $(s,a)$, if $h$ includes $B$ samples from $T_{m_0}(s'|s,a)$, then with probability at least $1-\delta_l$,
+That is, $m_\phi$ is the BAMDP based on the prior $\phi$.
+\end{defn}
+
+\begin{defn}
+Let $n_h(s,a)$ be the number of transitions from $(s,a)$ in $h$.
+\end{defn}
+
+\begin{defn}
+Let the set of possible histories $H^B \subset H$ be the set of histories with no more than $B$ examples of transitions from any state-action pair. That is, 
 \begin{eqnarray}
-\forall_{s'}~|T_{\phi|h}(s'|s,a) - T_{m_0}(s'|s,a)| \leq \epsilon_l.
+H^B&=&\{h|h\in H\wedge \forall_{s,a} c_h(s,a) \leq B\}.
 \end{eqnarray}
-As a result, if $B$ examples of each of the $S\cdot A$ state-action pairs are observed, with probability at least $1-\delta_l S A$, all transition probability deviations are bounded by $\epsilon_l$.
+\end{defn}
 
-\item The {\bf MCTS simulation conjecture}, described in Section~\ref{mcts-conj}.
-\end{enumerate}
-
-
-
-\subsection{MCTS simulation conjecture}
-\label{mcts-conj}
-
-Let an MCTS algorithm $\mathcal{A}_m(s,B)$ be an estimator of the value of state $s$ in MDP $m$, bounded by computational resources $B$, whose sole source of stochasticity comes from using $m$ as a generator of $s'\sim s,a|m$. \alg{FSSS} and \alg{UCT}~\cite{kocsis06} both fall into this category; their resources are the number of roll-outs and maximum search depth.
-
-Intuitively, we conjecture that if $\mathcal{A}$ can reliably find accurate values for states in one MDP, then it can also reliably find accurate values for the MDP when using an approximate second MDP as its next-state generator.
-
-If,
-\begin{enumerate}
-\item \label{mcts-bound} for all $s,a,s'$, $|T_{m_a}(s'|s,a) - T_{m_b}(s'|s,a)| \leq \epsilon_l$,
-\item \label{mcts-good} for all $s$, with probability at least $1-\delta_p$, $|\mathcal{A}_{m_a}(s,X)-V_{m_a}(s)|\leq \epsilon_p$,
-\end{enumerate}
-then for all $s$, with probability at least $1-f_\delta(\delta_p)$,
+\begin{defn}
+Let the BAMDP $m_\phi^B$ be the MDP with state space $X^B = S\times H^B$, action space $A$, and the transition and reward functions:
 \begin{eqnarray}
-|\mathcal{A}_{m_b}(s,X)-V_{m_a}(s)|\leq f_\epsilon(\epsilon_l, \epsilon_c),
+T_{m_\phi^B}(x'|x,a)= T_{m_\phi}(\langle s', h'\rangle|\langle s, h)\rangle, a) &=& f_B(h'|h,s,a) \int_m \phi(m|h)T_m(s'|s,a) dm,\\
+f_B(h'|h,s,a) &=& \left\{\begin{array}{lll}
+n_h(s,a)\leq B&:& \mathbb{1}[h'=h+(s,a,r,s')]\\
+n_h(s,a) = B&:& \mathbb{1}[h'=h],
+\end{array}\right.\\
+R_{m_\phi^B}(x,a) &=& R_{m_\phi}(x, a).
 \end{eqnarray}
+That is, $m_\phi^B$ is the BAMDP based on the prior $\phi$, where transitions from state-action pairs with at least $B$ examples in the history are forgotten. Since the transition function has a sample complexity of $B$, with an accuracy of $\epsilon_T$, and the reward function has a sample complexity of $B$ with an accuracy of $\epsilon_R$, $m_\phi^B$ is an $\epsilon_T$, $\epsilon_R$ approximation of $m_\phi$.
+\end{defn}
+
+\begin{defn}
+Let the BAMDP $m_\mathcal{A}$ be the MDP with state space $X^B = S\times H^B$, action space $A$, and the transition and reward functions $T_\mathcal{A}$ and $R_\mathcal{A}$,
 where
 \begin{eqnarray}
-1/f_\delta(\delta_p)&=&\mbox{poly}(1/(1-\epsilon_l),1/\delta_c,1/\epsilon_c,m_a,B)\\
-f_\epsilon(\epsilon_l, \epsilon_p)&=&\mbox{poly}(1/(1-\epsilon_l),1/\delta_c,1/\epsilon_c,m_a,B).
+\forall_{x',x,a} |T_\mathcal{A}(x'|x,a) - T_{m_\phi^B}(x'|x,a)| &\leq& \epsilon^c_T,\\
+\forall_{x,a} |R_\mathcal{A}(x,a) - R_{m_\phi^B}(x,a)| &\leq& \epsilon^c_R.
 \end{eqnarray}
+That is, $m_\mathcal{A}$ is an $\epsilon^c_T$, $\epsilon^c_R$ approximation of $m_\phi^B$.
+\end{defn}
 
+\subsection{Accuracy}
 
-%\subsubsection{Note on $C \cdot A$}
-%The probability $1-\delta_{p}/(CA)$ is used because, for each step, \alg{BFS3} will invoke \alg{FSSS} $C \cdot A$ times, or $C$ times for each action.  This choice was made to ensure that all next states get enough resources to ensure accuracy when their dynamics are known. We use the union bound to say, with probability  $1-\delta_p$, \emph{all} such next states have accurate estimates.
+This section will find the likelihood that all estimates are accurate.
 
-There are counter-examples that show that this conjecture is, in general, not true. Consider an algorithm $\mathcal{A}$ that always finds the correct values for a deterministic MDP $m_1$ by examining a particular trajectory of length $N$---since $\mathcal{A}$ has no stochasticity of its own, every time it runs it will get the same trajectory. It so happens that the trajectory $\mathcal{A}$ examines will give it a correct estimate, but no others will. Let MDP $m_2$ be a slightly stochastic version of $m_1$. Now, that trajectory's likelihood may be as little as $(1-\epsilon_l)^N$, or the likelihood of getting the right outcome $N$ times in a row. As $N$ grows, the probability of getting that single trajectory that works for $\mathcal{A}$ shrinks.
-
-This counter-example is a pathalogical case, and it has been shown that there are many algorithms (\alg{FSSS}, \alg{Sparse Sampling}, \alg{UCT}, and others) that are robust to small differences in the transition function, in general.
-
-\subsection{PAC-MDP behavior in the BAMDP}
-
-Let
-\begin{itemize}
-\item the BAMDP be $m_{\phi|h}$,
-\item the set of all possible histories be $H$,
-\item the state space of the BAMDP be the set of belief-states $S_\phi = S \times H$, and
-\item the action space of the BAMDP be the same as the regular MDP.
-\end{itemize}
-
-\alg{BFS3} limits $H$ to contain only histories with at most $B$ examples of transitions from any state-action pair. That is, when the agent observes the $B_{\mbox{\footnotesize{th}}}$ transition from state $s$ and action $a$, it shall never again update its history when making a transition from that state with that action. This forgetfulness causes the set $H$ to be finite without sacrificing accuracy, due to Assumption~\ref{theorem:cond-acc}.
-
-In a discrete state and action MDP, the history $h\in H$ may be summarized by a set of histograms, one for each state-action pair. Since we ignore all transitions from any state-action pair after the $B_{\mbox{\footnotesize{th}}}$ transition from that state-action pair, we know that the sum of all entries in all histograms cannot exceed $S\cdot A \cdot B$.
-
-Since, whenever the history \emph{is} updated, a single entry for a single histogram will be incremented by $1$, we can infer that a sequence of at most $S\cdot A \cdot B$ unique histories can possibly be experienced by an agent over the course of a single experiment.
-
-The agent can also visit at most $S$ true states (all of them). Since there are $S$ true states and $S\cdot A \cdot B$ possible histories, the number of belief-states that an agent can visit, in a single experiment, is $M = S^2\cdot A \cdot B$.
-
-Our strategy will be to say that, for each of these at most $M$ possible belief-states visited by the agent, the agent will either choose an action that is approximately optimal in the BAMDP (and therefore approximately Bayes-optimal in the true MDP), or exploratory in the BAMDP (with no guarantees about how good this action is in the true MDP).
-
-We say that an agent is near Bayes-optimal if we can limit the number of exploratory actions taken to a polynomial of the domain parameters.
-
-To show PAC-MDP behavior in the BAMDP (and, therefore, near Bayes-optimal behavior), we need to show that three conditions hold~\cite{lihong09pacmdp}:
-\begin{enumerate}
-\item \label{pacmdp-opt} optimism,
-\item \label{pacmdp-disc} bounded discoveries, and
-\item \label{pacmdp-acc} accuracy.
-\end{enumerate}
-
-To understand these criteria and how they connect PAC-MDP behavior in the BAMDP to near Bayes-optimal behavior in the true MDP, we need to define the concept of \emph{known} and \emph{unknown} \emph{states} in $m_0$ and  \emph{known} and \emph{unknown} \emph{belief-states} in $m_\phi$.
-
-A \emph{state} $s$ is considered known if the history $h$ contains $B$ examples of transitions from $s$ for each action $a\in A$.
-
-A \emph{belief-state} $\langle s, h \rangle$ is considered known if \alg{FSSS}'s estimate of its value is accurate.
-
-Figure~\ref{fig:bfs3tree} illustrates how unknown states in a belief-state's \alg{FSSS} subtree may cause a belief-state's estimate to be inaccurate. Because of Prerequisite~\ref{fsss-acc}, the planning assumption, we know that if there are no unknown states in a belief-state's subtree, then the belief-state's estimate will be accurate, and we can consider the belief-state to be known.
-
-It is possible for a belief-state to be known if there are unknown states in its subtree; in the limit of computation, \alg{FSSS} will be accurate for all belief-states. But, it is not possible for all states in the belief-state's subtree to be known if the belief-state is not known.
-
-As a result, an unknown belief-state indicates an unknown state that is at most $D+1$ steps away, where $D$ is the search depth given to \alg{FSSS} (which starts planning from $1$ step in the future). Since unknown belief-states always have optimistic estimates when they are evaluated with \alg{FSSS}, the agent is pulled towards unknown states.
-
-\begin{figure}
-\vskip 0.2in
-\begin{center}
-\centerline{\includegraphics[scale=0.5]{figures/bfs3tree}}
-\caption{
-\alg{BFS3} will run \alg{FSSS} on each of the $C\cdot A$ next belief-states, $\langle s', h' \rangle$ and its peers. Triangles below belief-states represent search trees explored by \alg{FSSS}. A greyed search tree indicates that some of the true states visited in that search tree are unknown, and the value estimate may be inaccurate. Because we are using \alg{FSSS}, an inaccurate estimate is guaranteed to be optimistic, and can bubble up to the root.
-}
-\label{fig:bfs3tree}
-\end{center}
-\vskip -0.2in
-\end{figure} 
-
-\subsubsection{Satisfying the PAC-MDP criteria}
-
-\alg{BFS3} is PAC-MDP for the belief-state MDP because it satisfies the 3 criteria.
-
-Condition~\ref{pacmdp-disc} holds because if the agent reaches an unknown belief state (one with an inaccurate, optimistic value), it must be because there is an unknown state-action pair beneath it in the tree \emph{and} this node will be reached by the current policy with high probability.
-%(Quantifying this claim \note{ml: [I'm afraid you need to do it.  it's just a sketch otherwise and you are claiming this result as one of your principal contributions]} involves an argument that closely parallels the ``explore or exploit'' lemma from PAC-MDP theory.) 
- Note that when an unknown state-action pair is reached, it moves closer to being known.  In fact, an agent can only do this update $S\cdot A \cdot B$ times, so, the number of discoveries is bounded.
-
-% Condition~\ref{pacmdp-disc} holds because a discovery is an event that updates the posterior, or changes the history. Since an agent can only do this update $S\cdot A \cdot N$ times, the number of discoveries is bounded by $S\cdot A \cdot N$.
-
-Condition~\ref{pacmdp-acc} holds because of Prerequisite~\ref{sa-bound} (the accuracy assumption). Once we have $B$ examples of a state-action pair, we have an accurate estimate of the next-state distribution for that pair. Once we have $B$ examples of all state-action pairs, we have an accurate estimate of the entire MDP.
-
-%Condition~\ref{pacmdp-opt} holds because of the nature of \alg{FSSS}. We know that \alg{FSSS} will never be pessimistic about a state's value~\cite{walsh10}. We will allow any uncertainty in a belief-state's value (that is, it can possibly run into a state-action pair for which $N$ samples have \emph{not} been observed) to cause \alg{FSSS} to be inaccurate. And, if it is not accurate, \alg{FSSS} must be optimistic. In this sense, uncertainty will draw the agent towards unknown states.
-
-Condition~\ref{pacmdp-opt} holds because of our definition of known and unknown belief-states and the behavior of \alg{FSSS}. Known belief-states have accurate values, and unknown belief-states have optimistic values. No belief-state ever has a pessimistic value.
-
-To make use of the PAC-MDP Theorem from Chapter~\ref{sec:introduction}, we must define a \emph{class} of state-action pairs. In this case, since a state in the BAMDP is belief-states $\langle s, h \rangle$, we will say two state-action pairs $(\langle s_1, h_1 \rangle, a_1)$ and $(\langle s_2, h_2 \rangle, a_2)$ are in the same class if and only if $s_1=s_2$ and $a_1=a_2$. That is, only the concrete state and action matter for classification. The history is ignored.
-
-With this choice of \emph{classes}, the Accuracy Condition is satisfied by observing that if $B$ examples of $(\langle s_0, h \rangle,a_0)$ have been observed, the history of the last one contains $B$ transitions from concrete state $s_0$ using action $a_0$, and therefore its dynamics are known to within $\epsilon_l$.
-
-Also, \alg{BFS3} does not completely fit the description of the agent defined by the PAC-MDP Theorem: it does not choose a policy that maximizes expected value on an MDP whose transition function is defined by the agent's estimated transition function for all \emph{known} state-action pairs. Instead it follows a policy that maximizes expected value on an MDP whose transition function for the agent's current state and action is the estimated transition function, but then defines the value for all other states to be the value estimated by \alg{FSSS}.
-
-For ease of notation, let $b_t = \langle s_t, h_t \rangle$ be a belief state.
-
-Recall that at time-step $t$, \alg{BFS3}'s policy is defined by a one-step simulation and a call out to \alg{FSSS}:
-\begin{eqnarray}
-\pi_t(b_t) &=& \argmax_a Q_t(b_t,a),\\
-Q_t(b_t,a) &=& R_t(b,a) + \gamma \sum_{b'} T_t(b'|s,a) \mbox{FSSS}(b',X).
-\end{eqnarray}
-
-\newtheorem*{bfs3thm}{BFS3 PAC-BAMDP Theorem}
-\begin{bfs3thm}
-The expected number of sub-$\epsilon$-optimal steps that \alg{BFS3} will take in the BAMDP is no more than $\frac 1 {\delta_l} H B C$, where
-\begin{eqnarray}
-\epsilon &=&,\\
-\delta_l &=&,\\
-H &=&.
-\end{eqnarray}
-\end{bfs3thm}
-
-\begin{proof}
-Similarly to the proof of the PAC-MDP Theorem in Chapter~\ref{sec:introduction}, this is proved in two parts. Let $D_t$ be the event that the agent makes a discovery during a window of $H$ steps, starting at step $t$. For any window of $H$ steps beginning at step $t$, the probability $P(D_t)$ is either large enough to make a discovery likely (and the number of discoveries is bounded), or small enough that $\pi_t(b_t)$ is an $\epsilon$-Bayes-optimal action, or the $\epsilon$-optimal action in the BAMDP.
-
-The probability threshold we will consider is $\delta_l$, which will be chosen to be the largest likelihood that allows an $\epsilon$-optimal policy. Let $\delta_l = \frac {\epsilon - (\epsilon_f + s(\epsilon_T,\epsilon_R) +2 \epsilon_H)} {\Vmax}$. Then, Lemma~\ref{sec:pacmdp:lemma:bad-steps} bounds the expected number of steps where $P(D_t)>\delta_l$.
-
-Lemma~\ref{sec:bfs3:lemma:opt-steps} shows that when $P(D_t)\leq \delta_l$, $a_t$ is an $\epsilon$-Bayes-optimal action.
-\end{proof}
+There are two sets of estimates to be made. The first set is the accuracy of a transition function estimate and reward function, given that estimate, given $C$ samples from the functions being estimated. We will call such an estimate a $C$-estimate.
 
 \begin{lemma}
-\label{sec:bfs3:lemma:opt-steps}
-Define $T(b'|b,a)$ to be the true next-belief-state transition probabilities, where
+All $C$-estimates of the transition and reward function of $m_\phi^B$ will be $\epsilon_T^c$-accurate and $\epsilon_R^c$-accurate with probability at least $1-\delta_C$, where
 \begin{eqnarray}
-T(b'|b,a) = T(\langle s', h+(s,a,s')\rangle|\langle s, h \rangle, a) &=& \int_m \phi(m|h) T_m(s'|s,a) dm.
+\delta_C &=& BS^2A^2(\delta_T^C+\delta_R^C).
 \end{eqnarray}
-
-Let $B_t$ be an MDP with the following quantities defined:
-\begin{eqnarray}
-T_{B_t}(b'|b_t,a) &=& T(b'|b_t,a),\\
-R_{B_t}(b_t,a) &=& R(b_t,a),\\
-V_{B_t}(b) &=& \mbox{FSSS}(b).
-\end{eqnarray}
-That is, the transition and reward functions involving the current belief-state $b_t$ use the true dynamics from the BAMDP. The value of every belief-state other than the one that the agent currently resides in is found by using \alg{FSSS}. This differs from the MDP that \alg{BFS3} uses to choose actions only in the first step of the simulation: \alg{BFS3} will use a Monte-Carlo estimate of the transition and reward functions instead of the true functions.
-
-We can bound the difference between $Q_t(b_t,a)$ and $Q_{B_t}(b_t,a)$:
-\begin{eqnarray}
-|Q_t(b_t,a) - Q_{B_t}(b_t,a)| \leq \epsilon_c,
-\end{eqnarray}
-where $\epsilon_c$ is \note{$\epsilon_c$ is well-defined and easy to derive, just not right now. it's a function of the number of next-states $C$ and the sparse sampling paper lists it.}
-\end{lemma}
-
-\subsection{How accurate, and how likely?}
-
-We have shown that \alg{BFS3} is near Bayes-optimal, meaning, with high probability, it will be accurate for all but a small number of steps. This section details how accurate \alg{BFS3} is and with what probability it achieves this accuracy.
-
-\subsubsection{Bayes-optimal behavior for a converged posterior}
-\label{sec-conv}
-We declare the posterior to be converged if, for each $s,a$, our history $h$ includes $B$ examples of a transition from $s,a$.
-
-\begin{lemma}
-If,
-\begin{itemize}
-\item
-for a given state-action pair $(s,a)$, $\forall_{s'} |T_{m_0}(s'|s,a) - T_{\phi|h}(s'|s,a)| \leq \epsilon_l$ with probability at least $1-\delta_l$,
-\item
-for a given state $s$, $|\mbox{FSSS}(s,X,\phi|h)-V_{\phi|H}(s)| \leq \epsilon_p$ with probability at least $1-\delta_p$,
-\end{itemize}
-then,
-\begin{eqnarray}
-\forall_s \ |\mbox{FSSS}(s,X,\phi|h) - V_{m_0}(s)| &\leq& f_\epsilon(\epsilon_l,\epsilon_p),
-\end{eqnarray}
-with probability at least $1-S A \delta_l - C A f_\delta(\delta_p)$.
-\end{lemma}
-\begin{proof}
-The probability that the posterior is $\epsilon_l$-close for a single state-action pair is at least $1-\delta_l$, according to  Prerequisite~\ref{theorem:cond-acc}. Applying the union bound then tells us that the probability that all $S \cdot A$ state-action pairs have an $\epsilon_l$-accurate posterior is at least $1- SA \delta_l$.
-
-Let $m_0$ and $\phi|h$ take the place of $m_a$ and $m_b$ in the MCTS simulation conjecture.
-By Prerequisite~\ref{sa-bound}, we have Condition~\ref{mcts-bound} for the MCTS simulation conjecture. 
-By Prerequisite~\ref{fsss-acc}, we have Condition~\ref{mcts-good} for the MCTS simulation conjecture.
-
-For each step in the environment, \alg{BFS3} runs \alg{FSSS} $C$ times for each action, resulting in $C\cdot A$ executions of \alg{FSSS}. We can use the union bound to put a lower bound on the likelihood that they are all $f_\epsilon(\epsilon_l, \epsilon_p)$-accurate of at least $1-CAf_\delta(\delta_{p})$, assuming that all transition probabilities in $\phi|h$ are $\epsilon_l$-accurate.
-
-We can use the union bound again to assert that the probability that all $S\cdot A$ posterior transition likelihoods are $\epsilon_l$-accurate, and that all $C\cdot A$ executions of \alg{FSSS} are $f_\epsilon(\epsilon_l,\epsilon_p)$-accurate, at the same time, is $1 - SA \delta_l-CAf_\delta(\delta_p)$.
-\end{proof}
-
-Now that the accuracy and likelihoods for the calls out to \alg{FSSS} have been estabilished, we can see how they affect the decision made by \alg{BFS3}.
-
-\begin{lemma}
-If \alg{FSSS} makes $f_\epsilon(\epsilon_l,\epsilon_p)$-accurate estimates for all states, then \alg{BFS3} will make an $(\epsilon_e+f_\epsilon(\epsilon_l,\epsilon_p))$-optimal decision with probability at least $1-e^{-\epsilon_e^2 C / {\Vmax^2}}$.
 \end{lemma}
 
 \begin{proof}
+The probability that, for a given history, state, and action, the transition and reward estimates both fall within their bounds, is at least $1-(\delta_T^C+\delta_R^C)$, by the union bound.
 
-The estimate for the value of taking action $a$ from the root state $s_0$ is calculated as
-\begin{equation}
-\hat Q(s_0, a) = R(s_0,a) + \gamma \frac 1 C \sum_{i=1}^C \mbox{FSSS}_{\phi|h}(s_i, B).
-\end{equation}
+Since the maximum size of a history is $B S A$ (since there may be at most $B$ examples of each state-action pair), and since the history used by \alg{BFS3} will never shrink, the agent can experience at most $BSA$ histories over the course of its lifetime. For each of those histories, there are at most $SA$ state-action pairs for which it may make estimates. Multiplying those two together limits the number of history-state-action combinations at $B S^2 A^2$.
 
-Let the Monte~Carlo estimate of $Q(s_0,a)$, using the true value for all next states, be
-\begin{equation}
-\tilde Q(s_0, a) = R(s_0,a) + \gamma \frac 1 C \sum_{i=1}^C V_{m_0}(s_i).
-\end{equation}
-
-From the Bellman equation, we know that
-\begin{equation}
-Q_{m_0}(s_0, a) = R(s_0,a) + \gamma \sum_{s_i} P_{m_0}(s_i|s,a) V_{m_0}(s_i).
-\end{equation}
-
-First, let's bound the difference between $\hat Q(s_0, a)$ and $\tilde Q(s_0, a)$.
-\begin{eqnarray}
-\nonumber |\hat Q(s_0, a) - \tilde Q(s_0, a)| &=& \left|\gamma \frac 1 C \sum_{i=1}^C \mbox{FSSS}_{\phi|h}(s_i, B) - \gamma \frac 1 C \sum_{i=1}^C V_{m_0}(s_i)\right|\\
-\nonumber &=& \left|\gamma \frac 1 C \sum_{i=1}^C \left(\mbox{FSSS}_{\phi|h}(s_i, B) -  V_{m_0}(s_i)\right)\right|\\
-\nonumber &\leq& \gamma \frac 1 C \sum_{i=1}^C \left|\mbox{FSSS}_{\phi|h}(s_i, B) -  V_{m_0}(s_i)\right|\\
-\nonumber &\leq& \gamma \frac 1 C \sum_{i=1}^C f_\epsilon(\epsilon_l, \epsilon_p)\\
- &\leq& f_\epsilon(\epsilon_l, \epsilon_p).
-\end{eqnarray}
-
-Second, let's bound the difference between $\tilde Q(s_0, a)$ and $Q_{m_0}(s_0, a)$.
-\begin{eqnarray}
-\nonumber |Q_{m_0}(s_0, a) - \tilde Q(s_0, a)| &=& \left|\gamma \sum_{s_i} T_{m_0}(s_i|s,a)V_{m_0}(s_i) - \gamma \frac 1 C \sum_{i=1}^C V_{m_0}(s_i)\right|\\
-\nonumber &=& \gamma \left|\sum_{s_i} T_{m_0}(s_i|s,a)V_{m_0}(s_i) - \frac 1 C \sum_{i=1}^C V_{m_0}(s_i)\right|\\
- &\leq& \epsilon_e,
-\end{eqnarray}
-with probability at least $1-e^{-\epsilon_e^2 C / {\Vmax^2}}$~\cite{kearns99b}.
-
-This expression bounds the error in the estimated Q-values:
-\begin{eqnarray}
-\nonumber |\hat Q(s_0, a) - Q_{m_0}(s_0, a)| &=& |\hat Q(s_0, a) - \tilde Q(s_0, a) + \tilde Q(s_0, a) - Q_{m_0}(s_0, a)|\\
-\nonumber &\leq& |\hat Q(s_0, a) - \tilde Q(s_0, a)| + |\tilde Q(s_0, a) - Q_{m_0}(s_0, a)|\\
- &\leq& f_\epsilon(\epsilon_l, \epsilon_p)+\epsilon_e,
-\end{eqnarray}
-
-with probability at least $1 - e^{-\epsilon_e^2 C / {\Vmax^2}}$.
-
+The probability that all $C$-estimates for all state-action-history combinations are correct, over the lifetime of the agent, is $1-BS^2A^2(\delta_T^C+\delta_R^C)$ by the union bound.
 \end{proof}
 
-Once the model has converged, every time the agent takes a step from some state $s_0$ it remembers what action it took, and will take that action in the future. 
-
-Let $\epsilon_c = f_\epsilon(\epsilon_l, \epsilon_p)+\epsilon_e$, and $\delta_c = S A \delta_l + C A f_\delta(\delta_p) + S(e^{-\epsilon_e^2 C / {\Vmax^2}})$.
+The second set is the estimate of the posterior after $B$ examples are observed from the MDP drawn from the prior. We will call such an estimate a $B$-estimate.
 
 \begin{lemma}
-\label{sec:bfs3:lemma:converged}
-Once at least $B$ examples of transitions from each state-action pair have been observed, the likelihood of \alg{BFS3} choosing an $\epsilon_c$-optimal action for each of the $S$ possible states is no less than $1-\delta_c$.
+All $B$-estimates of the transition and reward function of $m_\phi$ will be $\epsilon_T$-accurate and $\epsilon_R$-accurate with probability at least $1-\delta_B$, where
+\begin{eqnarray}
+\delta_B &=& SA(\delta_T+\delta_R).
+\end{eqnarray}
 \end{lemma}
+
+\begin{proof}
+The probability that, for a given state-action pair with $B$ examples, the posterior transition and reward functions both fall within their bounds is at least $1-(\delta_T+\delta_R)$, by the union bound.
+
+The maximum number of state-action pairs that can ever have $B$ examples is $SA$ (all of them).
+
+The probability that all $B$-estimates for all state-action pairs are correct, over the lifetime of the agent, is $1-SA(\delta_T+\delta_R)$ by the union bound.
+\end{proof}
+
+The likelihood that all estimates of any sort are accurate needs to be established.
+
+\begin{lemma}
+\label{sec:bfs3:all-estimates}
+All $C$-estimates and $B$-estimates made by \alg{BFS3} fall within their bounds with probability at least $1-\delta$, where
+\begin{eqnarray}
+\delta &=& BS^2A^2(\delta_T^C+\delta_R^C)+ SA(\delta_T+\delta_R).
+\end{eqnarray}
+\end{lemma}
+
 \begin{proof}
 Proof follows immediately from the union bound.
 \end{proof}
 
-\subsection{Bayes-optimal behavior for an unconverged posterior}
+\begin{lemma}
+With probability at least $1-\delta$, $m_\mathcal{A}$ is an $\epsilon_T^C$,$\epsilon_R^C$-approximation of $m_\phi^B$, and $m_\phi^B$ is an $\epsilon_T$,$\epsilon_R$-approximation of $m_\phi$.
+\end{lemma}
 
-Since the agent will not update the history $h$ on a transition from $s,a$ when transitions $s,a$ have been observed $B$ times in the past, we know there are only $S \cdot A \cdot B$ different histories possible over the course of a single experiment.
+\begin{proof}
+Since the estimates whose probabilities are bounded by Lemma~\ref{sec:bfs3:all-estimates} are exactly those estimates used to create $m_\phi^B$ and $m_\mathcal{A}$, when those estimates hold, the bounds between those MDPs hold as well.
+\end{proof}
 
-Given a particular history $h$ and state $s$ that has been experienced before, \alg{BFS3} will choose the same action as last time, limiting the total amount of computation possible; in addition, the total number of times \alg{BFS3} has to succeed is limited at $M = S^2 A B$, or the number of states times the number of possible histories.
+\subsection{Bounded sub-optimality}
 
-In Sections~\ref{sec:inf}~and~\ref{sec:fin}, we set conditions for \alg{BFS3} to choose either an exploratory action or an optimal action for each of these $M$ possible events.
+This section presents bounds between the value of a state in $m_\mathcal{A}$ and $m_\phi$, and then shows that \alg{BFS3} will take only a small number of sub-optimal steps in $m_\mathcal{A}$ and, therefore, a small number of sub-optimal steps in $m_\phi$.
 
-On a given step, \alg{BFS3} will run \alg{FSSS} for each of $A$ possible actions and, for each action, $C$ possible next-states.
-
-
-\subsubsection{In the limit of infinite computation}
-\label{sec:inf}
-
-We will briefly examine the behavior of \alg{BFS3} as the number of trajectories $t$, the branching factor $C$, and the search depth $D$ all approach infinity.
 
 \begin{lemma}
-As $t\rightarrow \infty$, \alg{BFS3} will make $\epsilon_\infty$-Bayes-optimal decisions for all steps with probability $1-\delta_\infty$, where
+The difference in the values of the two MDPs $m_{\mathcal{A}}$ and $m_\phi$ for a given state is bounded by the Simulation Lemma.
 \begin{eqnarray}
-\epsilon_\infty &=& \frac {\epsilon_e(1-\gamma^{D+1})} {1-\gamma}+\gamma^D\Vmax,\\
-\delta_\infty &=& M(CA)^D e^{-\epsilon_e^2C/\Vmax^2}.
+|V_{m_\mathcal{A}}(s) - V_{m_\phi}(s)| &\leq& s(\epsilon_T+\epsilon^c_T,\epsilon_R+\epsilon^c_R),\\
+|Q_{m_\mathcal{A}}(s,a) - Q_{m_\phi}(s,a)| &\leq& s(\epsilon_T+\epsilon^c_T,\epsilon_R+\epsilon^c_R),\\
+s(\epsilon_T+\epsilon^c_T,\epsilon_R+\epsilon^c_R) &=& \frac {(\epsilon_R+\epsilon^c_R) + \gamma \Vmax(\epsilon_T+\epsilon^c_T)} {1-\gamma}.
 \end{eqnarray}
 \end{lemma}
 \begin{proof}
-Each of the next-state possibilities will be fully explored and FSSS will agree with Sparse Sampling, giving an error of no more than 
-$$\epsilon_\infty = \frac {\epsilon_e(1-\gamma^{D+1})} {1-\gamma}+\gamma^D\Vmax,$$
-with probability at least $1-(C\cdot A)^D e^{-\epsilon_e^2C/\Vmax^2}$, where $D$ is the maximum search depth. Recall that $M = S^2 A B$ is the maximum number of decisions that \alg{BFS3} will have to make. Let $\delta_\infty/M=(C A)^De^{-\epsilon_e^2C/\Vmax^2}$; the agent will then be able to pick an $\epsilon_\infty$-optimal action for each of the $M$ events with probability  at least $1-\delta_\infty$.
+Since $m_\mathcal{A}$ is an $\epsilon^c_T$, $\epsilon^c_R$ approximation of $m_\phi^B$, and $m_\phi^B$ is an $\epsilon_T$, $\epsilon_R$ approximation of $m_\phi$, $m_\mathcal{A}$ is an $(\epsilon_T+\epsilon^c_T)$, $(\epsilon_R+\epsilon^c_R)$ approximation of $m_\phi$. Proof follows immediately from the Simulation Lemma.
 \end{proof}
 
+\begin{lemma}
+Acting near-optimally in $m_\mathcal{A}$ is sufficient for acting near-optimally in $m_\phi$. 
+Specifically, an action that is $\epsilon_A$-optimal in $m_\mathcal{A}$ is $\epsilon$-optimal in $m_\phi$, where $\epsilon_A=\epsilon - s(\epsilon_T+\epsilon^c_T,\epsilon_R+\epsilon^c_R)$.
+\end{lemma}
+\begin{proof}
+Proof is immediate.
+\end{proof}
 
-\subsubsection{Limited computation}
-\label{sec:fin}
+Since an action that is $\epsilon_A$-optimal in $m_\mathcal{A}$ is $\epsilon$-optimal in $m_\phi$, we will bound the number of sub-$\epsilon_A$-optimal steps in $m_\mathcal{A}$.
 
-When computation is limited, we have to rely on optimistic estimates of Q-values in the BAMDP to draw the agent towards unknown belief-states that are potentially optimal.
 
-In cases where there is limited computation and all states in the subtree have converged according to Prerequisite~\ref{sa-bound}, we are guaranteed to act $\epsilon_f$-optimal with probability  at least $1 - \delta_f/M$, according to Lemma~\ref{sec:bfs3:lemma:converged}, where
-$$\epsilon_f = f_\epsilon(\epsilon_l, \epsilon_p)+\epsilon_e$$
-and
-$$\delta_f/M = f_\delta(\delta_{p}) + e^{-\epsilon_e^2 C / {\Vmax^2}}.$$
 
-In cases with limited computation and when there are states in the subtree that are not converged, we are guaranteed to have an $\epsilon_f$-\emph{optimistic} estimate with probability  at least $1-\delta_f/M$. This is true because of the guarantees provided by \alg{FSSS}.
+\begin{defn}
+A \emph{model discovery} is the event where the agent visits an unknown state-action pair.
+\end{defn}
 
-An action $a$'s estimate is $\epsilon$-optimistic if
-$$\hat Q(s, a) \geq Q_{m_0}(s, a) - \epsilon.$$
+\begin{defn}
+A \emph{value discovery} is the event where \alg{BFS3} plans and causes a belief state to become pinned.
+\end{defn}
 
-Note that an $\epsilon$-accurate estimate is also $\epsilon$-optimistic.
+\begin{defn}
+A \emph{policy epoch} is a sequence $n$ steps long starting at $t$, where $\forall_{0<i\leq n} \pi_t = \pi_i$. That is, a policy epoch is a time period during which the policy does not change.
+\end{defn}
 
-Since for each of the $M$ events we have an $\epsilon_f$-optimistic estimate with probability  $1-\delta_f/M$, we will have an $\epsilon_f$-optimistic estimate for each event simultaneously with probability  $1-\delta_f$, by the union bound.
+\begin{defn}
+A \emph{history epoch} is a sequence of steps without a model discovery.
+\end{defn}
 
-%We can now lean on the PAC-MDP proof for $\epsilon_f$-optimal behavior in the belief MDP with probability  $1-\delta_f$ for all but a polynomial number of steps.
+\begin{defn}
+The agent's estimate of the value of belief-state $x$ at time step $t$ is $V_t(x)$. Since \alg{BFS3} will use the estimates from the previous time-step as a way to boot-strap its current estimates, we define $V_{-1}(x)=\Vmax$.
+\end{defn}
 
-%If we take an action whose estimate is $\epsilon_f$-optimistic but not $\epsilon_f$-optimal, that means that there must be something worth learning (in that if we knew it, it has the potential to change our estimate) in the next $D$ steps.
+Every time \alg{BFS3} visits a belief state for the first time in a given policy epoch, it will run \alg{FSSS} at most $CA$ times, using each of the at most $CA$ possible next belief states as the roots. \alg{FSSS} will reuse and overwrite the previous value estimates, such that if \alg{BFS3} runs \alg{FSSS} on belief-state $x$ at step $t$, \alg{FSSS} will start with the upper bound on the value of each belief state at $V_{t-1}(x)$, and an equivalent memory for the lower bound. After \alg{FSSS} is done, $V_t(x)$ is the new upper-bound estimate for $x$.
+
+The following is the proof of Theorem~\ref{bfs3:proof-of-pacbamdp}
+\begin{proof}
+Let $m_\mathcal{A}^h$ be the set of belief states in $m_\mathcal{A}$ with the history $h$. Once an agent leaves $m_\mathcal{A}^h$ it can never return, since the only way $h$ can change is by growing bigger.
+
+The strategy will be to show that when \alg{BFS3} enters $m_\mathcal{A}^h$, the number of sub-$\epsilon_A$-optimal actions it takes before leaving is small. The time starting when \alg{BFS3} enters this set of states and leaves is a history epoch.
+
+The number of possible model discoveries during a history epoch is $1$, since making a discovery ends the epoch.
+
+The number of possible value discoveries during a history epoch is $S$, since there are at most $S$ possible belief states in the set $m_\mathcal{A}^h$, and by the consistency condition, a value discovery can be made once per belief state. In addition, after $S$ value discoveries in a history epoch, all remaining steps in that history epoch will be $\epsilon_A$-optimal, since all states have $\epsilon_A$-accurate values.
+
+Since, at step $t$, \alg{BFS3} will either replan or the policy will remain unchanged since the last time the agent visited belief-state $x_t$, either $\argmax_a Q_A(x_t,a)$ is $\epsilon_A$-optimal, or the current policy $\pi_t$ will reach an unknown state-action pair in the next $d$ steps with probability at least $\delta_l$.
+
+If $\argmax_a Q_A(x_t,a)$ is not $\epsilon_A$-optimal, with probability at least $\delta_l$, the agent will either make a model discovery (if all the $d$ belief states in the sequence remain unknown) or a value discovery (if \alg{BFS3} replans during the sequence and figures out the $\epsilon_A$-accurate value).
+
+The total number of possible model discovery and value discovery events during a history epoch, when combined, numbers no more than $S+1$ (there are $S$ possible value discoveries, and one possible model discovery). Since every $d$-step window beginning at a belief state with inaccurate $Q$-values has a probability of at least $\delta_l$ of making one of these $S+1$ discoveries, the expected number of sub-$\epsilon_A$-optimal steps per history epoch is at most $(S+1)d/\delta_l$.
+
+Since there are at most $BSA$ history epochs, one per possible model discovery, the expected number of sub-$\epsilon_A$-optimal steps for the lifetime of the agent is at most $BSA(S+1)d/\delta_l$.
+\end{proof}
 
 %
 \ifperchapterbib%
